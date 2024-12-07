@@ -2,7 +2,7 @@
 --- You need to install this package or
 --- download the file itself from Github.
 ---
---- local inspect = require("inspect");
+local inspect = require("inspect");
 
 --- Base module(s)
 
@@ -72,6 +72,7 @@ handler.config = {
 	strong_style = "fancy",
 	subscript_style = "simple",
 	superscript_style = "simple",
+	default_cell_alignment = "left",
 
 	block_quotes = {
 		default = {
@@ -397,23 +398,22 @@ handler.wrap = function (text, max_width, add_newline)
 	local line_width = 0;
 
 	local function sub_divide(txt)
-		local width = styles.strdisplaywidth(txt);
-
-		local sub_divisions = math.floor(width / max_width) + 1;
+		local str_width = styles.strdisplaywidth(txt);
+		local sub_divisions = math.floor(str_width / max_width) + 1;
 
 		for s = 1, sub_divisions do
 			if s == 1 then
-				lines[#lines] = (lines[#lines] or "") .. str_sub(txt, (s - 1) * width, s * width);
+				lines[#lines] = (lines[#lines] or "") .. str_sub(txt, (s - 1) * max_width, s * max_width);
 			else
 				table.insert(
 					lines,
-					str_sub(txt, (s - 1) * width, s * width)
+					str_sub(txt, (s - 1) * max_width, s * max_width)
 				);
 			end
 
 			if s == sub_divisions then
 				line_width = styles.strdisplaywidth(
-					str_sub(txt, (s - 1) * width, s * width)
+					str_sub(txt, (s - 1) * max_width, s * max_width)
 				);
 			end
 		end
@@ -427,7 +427,7 @@ handler.wrap = function (text, max_width, add_newline)
 			if part == "\n" then
 				line_width = 0;
 			elseif part_width >= max_width then
-				table.insert(lines, "");
+				-- table.insert(lines, "");
 				sub_divide(part);
 			elseif line_width + part_width >= max_width then
 				table.insert(lines, part);
@@ -476,6 +476,7 @@ handler.wrap = function (text, max_width, add_newline)
 	then
 		table.insert(lines, "");
 	end
+
 	return lines;
 end
 
@@ -997,12 +998,12 @@ end
 
 handler.Table = function (node)
 	local align = function (align, text, width)
-		if align == "AlignDefault" or align == "AlignLeft" then
-			return styles.align_text("left", text, width);
+		if align == "AlignLeft" then
+			return styles.align_text("left", text, width - 2, false);
 		elseif align == "AlignRight" then
-			return styles.align_text("right", text, width);
+			return styles.align_text("right", text, width - 2, false);
 		else
-			return styles.align_text("center", text, width);
+			return styles.align_text(handler.config.default_cell_alignment or "center", text, width - 2, false);
 		end
 	end
 
@@ -1033,7 +1034,8 @@ handler.Table = function (node)
 		end
 	end
 
-	local col_width = math.floor(max_width / #col_spec);
+	--- FIXME, should we also count the borders?
+	local col_width = math.floor((max_width - (#col_spec + 1)) / #col_spec); -- - (#col_spec + 1);
 
 	local create_decorator = function ()
 		local borders = get_border();
@@ -1052,54 +1054,58 @@ handler.Table = function (node)
 	end
 
 	local create_row = function (cols)
-		local _l = {};
+		local _lines = {};
+		local columns = {};
+		local max_lines = 0;
 
-		for c, col in ipairs(cols) do
-			local borders = get_border();
+		local borders = get_border();
+
+		for _, col in ipairs(cols) do
+			local this_col_width = col_width;
 			local col_align = handler.table_align or col.alignment;
-			local covered_width = ((c - 1) * col_width) + ((c - 2) * styles.strdisplaywidth(borders[2] or ""));
+
+			if col_align ~= "AlignCenter" then
+				this_col_width = this_col_width - 2;
+			end
 
 			local content = handler.init(col.contents);
 			local text    = table.concat(content, "\n");
 
-			local wrapped = handler.wrap(text, col_width);
+			local wrapped = handler.wrap(text, this_col_width);
 			wrapped = handler.strip_empty_lines(wrapped);
 
-			for l = 1, math.max(#wrapped, #_l) do
-				--- Line doesn't exist. Add the left border.
-				if not _l[l] then
-					_l[l] = borders[1] or "";
-				end
+			for w, wtext in ipairs(wrapped) do
+				wrapped[w] = align(col_align, wtext, col_width);
+			end
 
-				if
-					styles.strdisplaywidth(_l[l]) < covered_width
-				then
-					local rep = math.floor(covered_width / col_width);
+			table.insert(columns, wrapped);
 
-					for _ = 1, rep do
-						_l[l] = _l[l] .. string.rep(" ", col_width) .. (borders[2] or "");
-					end
-				end
+			if #wrapped > max_lines then
+				max_lines = #wrapped;
+			end
+		end
 
-				if wrapped[l] then
-					if c ~= #cols then
-						_l[l] = _l[l] .. align(col_align, wrapped[l], col_width) .. (borders[2] or "");
-					else
-						_l[l] = _l[l] .. align(col_align, wrapped[l], col_width) .. (borders[3] or "");
-					end
+		for l = 1, max_lines, 1 do
+			local line = borders[1];
+
+			for c, column in ipairs(columns) do
+				if column[l] then
+					line = line .. string.format(" %s ", column[l]);
 				else
-					if c ~= #cols then
-						_l[l] = _l[l] .. string.rep(" ", col_width) .. (borders[2] or "");
-					else
-						_l[l] = _l[l] .. string.rep(" ", col_width) .. (borders[3] or "");
-					end
-					_l[l] = _l[l] .. string.rep(" ", col_width) .. (borders[2] or "");
+					line = line .. string.rep(" ", col_width);
+				end
+
+				if c ~= #columns then
+					line = line .. borders[2];
+				else
+					line = line .. borders[3];
 				end
 			end
 
+			table.insert(_lines, line)
 		end
 
-		return _l;
+		return _lines;
 	end
 
 	local lines = {};
