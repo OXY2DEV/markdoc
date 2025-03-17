@@ -135,31 +135,55 @@ end
 
 
 
+--- Bullet list(+, -, *);
+---@param node table
+---@return string
 markdoc.BulletList = function (node)
-	local _output = "";
+	---|fS
 
-	local W = markdoc.config.width;
-	local indent = markdoc.state.depth * 2;
+	--- Handles unordered list candidates.
+	---@param candidate table
+	---@return string
+	local function handle_candidate (candidate)
+		---|fS
 
-	local content = markdoc.treverse(node.content);
+		local _output = "";
 
-	for p, paragraph in ipairs(split(content, "\n")) do
-		local wrapped = wrap(paragraph, W - (indent + 2));
+		local W = markdoc.config.width;
+		local indent = markdoc.state.depth * 2;
 
-		for l, line in ipairs(split(wrapped, "\n")) do
-			_output = _output .. string.rep(" ", indent);
+		local content = markdoc.treverse(candidate);
 
-			if l == 1 and p == 1 then
-				_output = _output .. "• " .. line;
-			else
-				_output = _output .. "  " .. line;
+		for p, paragraph in ipairs(split(content, "\n")) do
+			local wrapped = wrap(paragraph, W - (indent + 2));
+
+			for l, line in ipairs(split(wrapped, "\n")) do
+				_output = _output .. string.rep(" ", indent);
+
+				if l == 1 and p == 1 then
+					_output = _output .. "• " .. line;
+				else
+					_output = _output .. "  " .. line;
+				end
+
+				_output = _output .. "\n";
 			end
-
-			_output = _output .. "\n";
 		end
+
+		return _output;
+
+		---|fE
 	end
 
-	return _output;
+	local _output = "";
+
+	for _, candidate in ipairs(node.content) do
+		_output = _output .. handle_candidate(candidate)
+	end
+
+	return (markdoc.state.depth > 1 and "\n\n" or "\n") .. _output .. (markdoc.state.depth > 1 and "\n" or "");
+
+	---|fE
 end
 
 --- Markdown heading
@@ -309,11 +333,161 @@ markdoc.Header = function (node)
 	---|fE
 end
 
---- Plain text
+--- Numbered list(1., 1));
 ---@param node table
 ---@return string
-markdoc.Plain = function (node)
-	return markdoc.treverse(node.content);
+markdoc.OrderedList = function (node)
+	---|fS
+
+	local function get_marker(lnum)
+		---|fS
+
+		if node.style == "Decimal" then
+			return tostring(lnum), tostring(lnum):len();
+		elseif node.style == "LowerAlpha" then
+			local _alpha = {
+				"a", "b", "c", "d", "e",
+				"f", "g", "h", "i", "j",
+				"k", "l", "m", "n", "o",
+				"p", "q", "r", "s", "t",
+				"u", "v", "w", "x", "y",
+				"z"
+			};
+
+			local _o = "";
+
+			while lnum > #_alpha do
+				_o = _o .. _alpha[#_alpha];
+				lnum = lnum - #_alpha;
+			end
+
+			_o = _o .. _alpha[lnum];
+			return _o, #_o;
+		elseif node.style == "UpperAlpha" then
+			local _alpha = {
+				"A", "B", "C", "D", "E",
+				"F", "G", "H", "I", "J",
+				"K", "L", "M", "N", "O",
+				"P", "Q", "R", "S", "T",
+				"U", "V", "W", "X", "Y",
+				"Z"
+			};
+
+			local _o = "";
+
+			while lnum > #_alpha do
+				_o = _o .. _alpha[#_alpha];
+				lnum = lnum - #_alpha;
+			end
+
+			_o = _o .. _alpha[lnum];
+			return _o, #_o;
+		elseif node.style == "UpperRoman" then
+			local roman_nums = {
+				{ "M",  1000 },
+				{ "CM", 900  },
+				{ "D",  500  },
+				{ "CD", 400  },
+				{ "C",  100  },
+				{ "XC", 90   },
+				{ "L",  50   },
+				{ "XL", 40   },
+				{ "X",  10   },
+				{ "IX", 9    },
+				{ "V",  5    },
+				{ "IV", 4    },
+				{ "I",  1    },
+			};
+
+			local _s = "";
+
+			for _, tuple in ipairs(roman_nums) do
+				while number >= tuple[2] do
+					lnum = lnum - tuple[2];
+					_s = _s .. tuple[1]
+				end
+			end
+
+			return _s, #_s;
+		else
+			local roman_nums = {
+				{ "m",  1000 },
+				{ "cm", 900  },
+				{ "d",  500  },
+				{ "cd", 400  },
+				{ "c",  100  },
+				{ "xc", 90   },
+				{ "l",  50   },
+				{ "xl", 40   },
+				{ "x",  10   },
+				{ "ix", 9    },
+				{ "v",  5    },
+				{ "iv", 4    },
+				{ "i",  1    },
+			};
+
+			local _s = "";
+
+			for _, tuple in ipairs(roman_nums) do
+				while number >= tuple[2] do
+					lnum = lnum - tuple[2];
+					_s = _s .. tuple[1]
+				end
+			end
+
+			return _s, #_s;
+		end
+
+		---|fE
+	end
+
+	--- Handles ordered list candidates.
+	---@param candidate table
+	---@param L integer
+	---@return string
+	local function handle_candidate (candidate, L)
+		---|fS
+
+		local delim = str(node.listAttributes.delimiter) == "Period" and "." or ")";
+		local _output = "";
+
+		local W = markdoc.config.width;
+		local indent = markdoc.state.depth * 2;
+
+		local content = markdoc.treverse(candidate);
+		local lnum, lnum_len = get_marker(L);
+
+		for p, paragraph in ipairs(split(content, "\n")) do
+			local wrapped = wrap(paragraph, W - (indent + 2));
+
+			for l, line in ipairs(split(wrapped, "\n")) do
+				_output = _output .. string.rep(" ", indent);
+
+				if l == 1 and p == 1 then
+					_output = _output .. lnum .. (delim or ".") .. " " .. line;
+				else
+					_output = _output .. string.rep(" ", lnum_len) .. "  " .. line;
+				end
+
+				_output = _output .. "\n";
+			end
+		end
+
+		return _output;
+
+		---|fE
+	end
+
+	local _output = "";
+	local S = node.start or 1;
+
+	for c, candidate in ipairs(node.content) do
+		_output = _output .. handle_candidate(candidate, S + (c - 1));
+	end
+
+	return (markdoc.state.depth > 1 and "\n\n" or "\n") .. _output .. (markdoc.state.depth > 1 and "\n" or "");
+
+	---|fE
 end
 
 --- Regular string.
@@ -327,7 +501,14 @@ end
 ---@param node table
 ---@return string
 markdoc.Para = function (node)
-	return "\n" .. markdoc.treverse(node.content);
+	return "\n" .. markdoc.treverse(node.content) .. "\n";
+end
+
+--- Plain text
+---@param node table
+---@return string
+markdoc.Plain = function (node)
+	return markdoc.treverse(node.content);
 end
 
 
@@ -444,11 +625,13 @@ markdoc.treverse = function (parent, between)
 
 			if can_call and type(val) == "string" then
 				_output = _output .. (_output ~= "" and between or "") .. val;
-			else
-				-- print(val)
+			elseif can_call == false then
+				print(val)
 			end
 		end
 	end
+
+	markdoc.state.depth = markdoc.state.depth - 1;
 
 	return _output;
 
@@ -462,6 +645,7 @@ function Writer (document)
 	markdoc.metadata_to_config(document.meta);
 	local converted = markdoc.treverse(document.blocks)
 
+	print(document.blocks)
 	print(converted);
 	return converted;
 end
