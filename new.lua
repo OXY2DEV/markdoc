@@ -133,7 +133,23 @@ end
 
 
 
+markdoc.BulletList = function (node)
+	local _output = "";
+
+	for _, line in ipairs(node.content) do
+		_output = _output .. (_output ~= "" and "\n" or "") .. markdoc.treverse(line, " ");
+	end
+
+	print(tostring(node.content))
+	return _output;
+end
+
+--- Markdown heading
+---@param node table
+---@return string
 markdoc.Header = function (node)
+	---|fS
+
 	local function get_tags(text)
 		---|fS
 
@@ -195,7 +211,7 @@ markdoc.Header = function (node)
 	if node.level == 1 or node.level == 2 then
 		---|fS
 
-		local _o = string.rep(node.level == 1 and "=" or "-", markdoc.config.width) .. "\n";
+		local _o = "\n" .. string.rep(node.level == 1 and "=" or "-", markdoc.config.width) .. "\n";
 
 		if #tags > 0 then
 			local L = math.ceil((markdoc.config.width - 2) / 2);
@@ -229,7 +245,7 @@ markdoc.Header = function (node)
 		---|fS
 
 		local tmp = wrap(txt, markdoc.config.width - 3);
-		local _o = tmp .. " ~\n";
+		local _o = "\n" .. tmp .. " ~\n";
 
 		if #tags > 0 then
 			local R = math.floor((markdoc.config.width - 2) / 2);
@@ -252,7 +268,7 @@ markdoc.Header = function (node)
 
 		local filtered = string.upper(filter(txt, "[a-zA-Z%d%s%._%-]"));
 		local tmp = wrap(filtered, markdoc.config.width - 3);
-		local _o = tmp .. " ~\n";
+		local _o = "\n" .. tmp .. "\n";
 
 		if #tags > 0 then
 			local R = math.floor((markdoc.config.width - 2) / 2);
@@ -271,14 +287,39 @@ markdoc.Header = function (node)
 
 		---|fE
 	end
+
+	---|fE
 end
 
+--- Plain text
+---@param node table
+---@return string
 markdoc.Plain = function (node)
-	return str(node);
+	return markdoc.treverse(node.content);
 end
 
+--- Regular string.
+---@param node table
+---@return string
 markdoc.Str = function (node)
 	return node.text;
+end
+
+
+
+
+
+
+--- Common whitespace.
+---@return string
+markdoc.Space = function ()
+	return " ";
+end
+
+--- Soft line breaks.
+---@return string
+markdoc.SoftBreak = function ()
+	return "\n";
 end
 
 
@@ -297,7 +338,7 @@ markdoc.metadata_to_config = function (metadata)
 		return;
 	end
 
-	for option, value in pairs(metadata.markdoc[1]) do
+	for option, value in pairs(metadata.markdoc) do
 		if option == "tags" then
 			--- Structure.
 			--- tags = {
@@ -306,7 +347,7 @@ markdoc.metadata_to_config = function (metadata)
 			--- }
 			local tags =  {};
 
-			for k, v in pairs(value[1]) do
+			for k, v in pairs(value) do
 				if type(v) == "table" then
 					local _o = {};
 
@@ -374,7 +415,7 @@ markdoc.treverse = function (parent, between)
 		elseif markdoc[item.t] then
 			local can_call, val = pcall(markdoc[item.t], item, _output);
 
-			if can_call then
+			if can_call and type(val) == "string" then
 				_output = _output .. (_output ~= "" and between or "") .. val;
 			else
 				-- print(val)
