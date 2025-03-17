@@ -2,7 +2,7 @@
 --- You need to install this package or
 --- download the file itself from Github.
 ---
-local inspect = require("inspect");
+-- local inspect = require("inspect");
 
 --- Base module(s)
 
@@ -69,7 +69,7 @@ handler.config = {
 	image_style = "fancy",
 
 	emph_style = "simple",
-	strong_style = "fancy",
+	strong_style = "simple",
 	subscript_style = "simple",
 	superscript_style = "simple",
 	default_cell_alignment = "left",
@@ -1184,7 +1184,7 @@ handler.Emph = function (node)
 
 	table.remove(handler.cache.parents, #handler.cache.parents);
 	return handler.config.emph_style == "simple" and
-		string.format("[%s]", content) or
+		string.format("〈%s〉", content) or
 		content
 	;
 end
@@ -1277,7 +1277,7 @@ handler.Strong = function (node)
 
 	--- FIXME, Find way to handle mixed styles.
 	table.remove(handler.cache.parents, #handler.cache.parents);
-	return handler.config.strong_style == "simple" and string.format("[[%s]]", content) or content;
+	return handler.config.strong_style == "simple" and string.format("⎡%s⎦", content) or content;
 end
 
 handler.Subscript = function (node)
@@ -1310,7 +1310,11 @@ end
  ------------------------------------------------------------------------------------------
 
 handler.metadata = function (metadata)
-	for key, value in pairs(metadata) do
+	if metadata["markdoc"] == nil then
+		return;
+	end
+
+	for key, value in pairs(metadata.markdoc) do
 		if key == "tags" then
 			for _, entry in ipairs(value) do
 				local pattern = stringify(entry[1]);
