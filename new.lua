@@ -16,7 +16,9 @@ markdoc.config = {
 	}
 };
 
-markdoc.state = {};
+markdoc.state = {
+	depth = 0,
+};
 
 
 
@@ -136,11 +138,27 @@ end
 markdoc.BulletList = function (node)
 	local _output = "";
 
-	for _, line in ipairs(node.content) do
-		_output = _output .. (_output ~= "" and "\n" or "") .. markdoc.treverse(line, " ");
+	local W = markdoc.config.width;
+	local indent = markdoc.state.depth * 2;
+
+	local content = markdoc.treverse(node.content);
+
+	for p, paragraph in ipairs(split(content, "\n")) do
+		local wrapped = wrap(paragraph, W - (indent + 2));
+
+		for l, line in ipairs(split(wrapped, "\n")) do
+			_output = _output .. string.rep(" ", indent);
+
+			if l == 1 and p == 1 then
+				_output = _output .. "• " .. line;
+			else
+				_output = _output .. "  " .. line;
+			end
+
+			_output = _output .. "\n";
+		end
 	end
 
-	print(tostring(node.content))
 	return _output;
 end
 
@@ -305,6 +323,13 @@ markdoc.Str = function (node)
 	return node.text;
 end
 
+--- A paragraph.
+---@param node table
+---@return string
+markdoc.Para = function (node)
+	return "\n" .. markdoc.treverse(node.content);
+end
+
 
 
 
@@ -408,6 +433,8 @@ markdoc.treverse = function (parent, between)
 
 	between = between or "";
 	local _output = "";
+
+	markdoc.state.depth = markdoc.state.depth + 1;
 
 	for _, item in ipairs(parent) do
 		if is_list(item) then
