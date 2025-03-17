@@ -138,7 +138,7 @@ end
 --- Bullet list(+, -, *);
 ---@param node table
 ---@return string
-markdoc.BulletList = function (node)
+markdoc.BulletList = function (node, _, width)
 	---|fS
 
 	--- Handles unordered list candidates.
@@ -149,7 +149,7 @@ markdoc.BulletList = function (node)
 
 		local _output = "";
 
-		local W = markdoc.config.width;
+		local W = width or markdoc.config.width;
 		local indent = markdoc.state.depth * 2;
 
 		local content = markdoc.treverse(candidate);
@@ -189,7 +189,7 @@ end
 --- Markdown heading
 ---@param node table
 ---@return string
-markdoc.Header = function (node)
+markdoc.Header = function (node, _, width)
 	---|fS
 
 	local function get_tags(text)
@@ -253,11 +253,11 @@ markdoc.Header = function (node)
 	if node.level == 1 or node.level == 2 then
 		---|fS
 
-		local _o = "\n" .. string.rep(node.level == 1 and "=" or "-", markdoc.config.width) .. "\n";
+		local _o = "\n" .. string.rep(node.level == 1 and "=" or "-", width) .. "\n";
 
 		if #tags > 0 then
-			local L = math.ceil((markdoc.config.width - 2) / 2);
-			local R = math.floor((markdoc.config.width - 2) / 2);
+			local L = math.ceil((width - 2) / 2);
+			local R = math.floor((width - 2) / 2);
 
 			local tmp = wrap(txt, L);
 			local txt_l = split(tmp, "\n");
@@ -269,7 +269,7 @@ markdoc.Header = function (node)
 				if txt_l[i] and tag_l[i] then
 					table.insert(lines, align("l", txt_l[i], L) .. "  " .. align("r", tag_l[i], R));
 				elseif tag_l[i] then
-					table.insert(lines, align("r", tag_l[i], markdoc.config.width));
+					table.insert(lines, align("r", tag_l[i], width));
 				elseif txt_l[i] then
 					table.insert(lines, txt_l[i]);
 				end
@@ -286,17 +286,17 @@ markdoc.Header = function (node)
 	elseif node.level == 3 then
 		---|fS
 
-		local tmp = wrap(txt, markdoc.config.width - 3);
+		local tmp = wrap(txt, width - 3);
 		local _o = "\n" .. tmp .. " ~\n";
 
 		if #tags > 0 then
-			local R = math.floor((markdoc.config.width - 2) / 2);
+			local R = math.floor((width - 2) / 2);
 			local tag_l = tag_lines(tags, R);
 
 			local lines = {};
 
 			for i = 1, #tag_l do
-				table.insert(lines, align("r", tag_l[i], markdoc.config.width));
+				table.insert(lines, align("r", tag_l[i], width));
 			end
 
 			_o = _o .. table.concat(lines, "\n");
@@ -309,17 +309,17 @@ markdoc.Header = function (node)
 		---|fS
 
 		local filtered = string.upper(filter(txt, "[a-zA-Z%d%s%._%-]"));
-		local tmp = wrap(filtered, markdoc.config.width - 3);
+		local tmp = wrap(filtered, width - 3);
 		local _o = "\n" .. tmp .. "\n";
 
 		if #tags > 0 then
-			local R = math.floor((markdoc.config.width - 2) / 2);
+			local R = math.floor((width - 2) / 2);
 			local tag_l = tag_lines(tags, R);
 
 			local lines = {};
 
 			for i = 1, #tag_l do
-				table.insert(lines, align("r", tag_l[i], markdoc.config.width));
+				table.insert(lines, align("r", tag_l[i], width));
 			end
 
 			_o = _o .. table.concat(lines, "\n");
@@ -336,7 +336,7 @@ end
 --- Numbered list(1., 1));
 ---@param node table
 ---@return string
-markdoc.OrderedList = function (node)
+markdoc.OrderedList = function (node, _, width)
 	---|fS
 
 	local function get_marker(lnum)
@@ -451,7 +451,7 @@ markdoc.OrderedList = function (node)
 		local delim = str(node.listAttributes.delimiter) == "Period" and "." or ")";
 		local _output = "";
 
-		local W = markdoc.config.width;
+		local W = width or markdoc.config.width;
 		local indent = markdoc.state.depth * 2;
 
 		local content = markdoc.treverse(candidate);
@@ -576,6 +576,8 @@ markdoc.metadata_to_config = function (metadata)
 			markdoc.config.block_quotes = value;
 		elseif option == "tables" then
 			markdoc.config.tables = value;
+		elseif option == "width" then
+			markdoc.config.width = value;
 		end
 	end
 
@@ -609,19 +611,21 @@ end
 --- Traverses the AST.
 ---@param parent table[]
 ---@return string
-markdoc.treverse = function (parent, between)
+markdoc.treverse = function (parent, between, width)
 	---|fS
 
 	between = between or "";
+	width = width or markdoc.config.width;
+
 	local _output = "";
 
 	markdoc.state.depth = markdoc.state.depth + 1;
 
 	for _, item in ipairs(parent) do
 		if is_list(item) then
-			_output = _output .. markdoc.treverse(item, between);
+			_output = _output .. markdoc.treverse(item, between, width);
 		elseif markdoc[item.t] then
-			local can_call, val = pcall(markdoc[item.t], item, _output);
+			local can_call, val = pcall(markdoc[item.t], item, _output, width);
 
 			if can_call and type(val) == "string" then
 				_output = _output .. (_output ~= "" and between or "") .. val;
@@ -645,7 +649,7 @@ function Writer (document)
 	markdoc.metadata_to_config(document.meta);
 	local converted = markdoc.treverse(document.blocks)
 
-	print(document.blocks)
+	-- print(document.blocks)
 	print(converted);
 	return converted;
 end
