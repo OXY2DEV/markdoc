@@ -1044,6 +1044,8 @@ markdoc.Table = function (node)
 	local alignments = {};
 	local widths = {};
 
+	local calculated_width = math.floor((markdoc.config.width - (#node.colspecs + 1)) / #node.colspecs)
+
 	for _, col in ipairs(node.colspecs) do
 		---|fS
 
@@ -1058,15 +1060,13 @@ markdoc.Table = function (node)
 		end
 
 		if type(col[2]) == "number" then
-			table.insert(widths, col[2]);
+			table.insert(widths, math.floor((markdoc.config.width - #node.colspecs) * col[2]));
 		else
-			table.insert(widths, markdoc.config.table.width);
+			table.insert(widths, math.max(calculated_width, markdoc.config.table.width));
 		end
 
 		---|fE
 	end
-
-	local W = (markdoc.config.table.width or 10) - 2;
 
 	local function handle_row (as, row)
 		---|fS
@@ -1076,8 +1076,8 @@ markdoc.Table = function (node)
 		local columns = {};
 		local row_height = 1;
 
-		for _, cell in ipairs(row) do
-			local tmp = markdoc.traverse(cell.content, nil, W);
+		for c, cell in ipairs(row) do
+			local tmp = markdoc.traverse(cell.content, nil, widths[c] - 2);
 			local lines = split(tmp, "\n");
 
 			if #lines > row_height then
@@ -1093,7 +1093,7 @@ markdoc.Table = function (node)
 			local _line = "";
 
 			for c, col in ipairs(columns) do
-				_line = _line .. (c == 1 and borders[1] or borders[2]) .. " " .. align(alignments[c], col[h] or "", W) .. " ";
+				_line = _line .. (c == 1 and borders[1] or borders[2]) .. " " .. align(alignments[c], col[h] or "", widths[c] - 2) .. " ";
 			end
 
 			_output = _output .. _line .. borders[3] .. "\n";
@@ -1130,7 +1130,7 @@ markdoc.Table = function (node)
 
 		_output = _output .. get_border(src, 1);
 		for c, _ in ipairs(alignments) do
-			_output = _output .. (c ~= 1 and get_border(src, 4) or "") .. string.rep(get_border(src, 2), W + 2);
+			_output = _output .. (c ~= 1 and get_border(src, 4) or "") .. string.rep(get_border(src, 2), widths[c]);
 		end
 		_output = _output .. get_border(src, 3) .. "\n";
 
@@ -1148,7 +1148,7 @@ markdoc.Table = function (node)
 		if r ~= #node.head.rows then
 			_output = _output .. get_border(h_s, 1);
 			for c, _ in ipairs(alignments) do
-				_output = _output .. (c ~= 1 and get_border(h_s, 4) or " ") .. string.rep(get_border(h_s, 2) or " ", W + 2);
+				_output = _output .. (c ~= 1 and get_border(h_s, 4) or " ") .. string.rep(get_border(h_s, 2) or " ", widths[c]);
 			end
 			_output = _output .. get_border(h_s, 3) .. "\n";
 		end
@@ -1170,7 +1170,7 @@ markdoc.Table = function (node)
 			if i ~= #row.body then
 				_output = _output .. get_border(h_s, 1);
 				for c, _ in ipairs(alignments) do
-					_output = _output .. (c ~= 1 and get_border(h_s, 4) or "") .. string.rep(get_border(h_s, 2) or " ", W + 2);
+					_output = _output .. (c ~= 1 and get_border(h_s, 4) or "") .. string.rep(get_border(h_s, 2) or " ", widths[c]);
 				end
 				_output = _output .. get_border(h_s, 3) .. "\n";
 			end
@@ -1182,6 +1182,7 @@ markdoc.Table = function (node)
 	--- Bottom section
 	decorators(bot)
 
+	print(_output)
 	return _output;
 
 	---|fE
@@ -1334,6 +1335,6 @@ function Writer (document)
 	local converted = markdoc.traverse(document.blocks)
 
 	-- print(document.blocks)
-	print(converted);
+	-- print(converted);
 	return converted;
 end
