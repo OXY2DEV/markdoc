@@ -211,18 +211,56 @@ markdoc.BlockQuote = function (node, _, width)
 		---|fE
 	end
 
+	local next_draw = false;
+
+	--- Can we draw the border?
+	---@param drawable boolean
+	---@param line string
+	---@return boolean
 	local border_drawable = function (drawable, line)
-		if drawable == true and string.match(drawable, "%>.-$") then
-			return false;
-		elseif drawable == false and string.match(drawable, "^%<") then
+		---|fS
+
+		if next_draw == true then
+			next_draw = false;
 			return true;
+		elseif drawable == true and string.match(line, "%>.-$") then
+			return false;
+		elseif drawable == false and string.match(line, "^%<") then
+			next_draw = true;
+			return false;
+		end
+
+		return drawable;
+
+		---|fE
+	end
+
+	--- Should we wrap this paragraph?
+	---@param entry table
+	---@return boolean
+	local function should_wrap(entry)
+		---|fS
+
+		if entry.t == "CodeBlock" then
+			return false;
+		elseif entry.t == "Table" then
+			return false;
 		end
 
 		return true;
+
+		---|fE
 	end
 
 	for e, entry in ipairs(node.content) do
-		local content = markdoc.treverse({ entry }, "", width - 2):gsub("^\n", "");
+		local content;
+
+		if should_wrap(entry) == false then
+			content = markdoc.treverse({ entry }, "", 9999):gsub("^\n", "");
+		else
+			content = markdoc.treverse({ entry }, "", width - 2):gsub("^\n", "");
+		end
+
 		local paragraph = split(content, "\n");
 
 		--- Should we draw the border?
@@ -252,7 +290,7 @@ markdoc.BlockQuote = function (node, _, width)
 		end
 	end
 
-	return _output;
+	return _output .. "\n\n";
 
 	---|fE
 end
@@ -304,6 +342,29 @@ markdoc.BulletList = function (node, _, width)
 	end
 
 	return (markdoc.state.depth > 1 and "\n\n" or "\n") .. _output .. (markdoc.state.depth > 1 and "\n" or "");
+
+	---|fE
+end
+
+--- Code block.
+---@param node table
+---@return string
+markdoc.CodeBlock = function (node)
+	---|fS
+
+	---@type string
+	local language = node.classes[1] or "";
+	local lines = split(node.text, "\n");
+
+	print(node.text)
+
+	local _output = string.format("\n>%s\n", language);
+
+	for _, line in ipairs(lines) do
+		_output = _output .. "  " .. line .. "\n";
+	end
+
+	return _output .. "<\n";
 
 	---|fE
 end
