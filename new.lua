@@ -13,6 +13,14 @@ markdoc.config = {
 	width = 78,
 	tags = {
 		[".nvim"] = "Hi"
+	},
+	block_quotes = {
+		default = {
+			border = "▌"
+		},
+		note = {
+			callout = "▌ Note"
+		}
 	}
 };
 
@@ -131,9 +139,123 @@ local function filter(text, pattern)
 	---|fE
 end
 
+local function extend(src, apply)
+	---|fS
+
+	local _tmp = src;
+
+	for k, v in pairs(apply) do
+		if src[k] and type(v) ~= type(src[k]) then
+			_tmp[k] = src[k];
+			goto continue;
+		end
+
+		if type(v) == "table" then
+			_tmp[k] = extend(src[k] or {}, v)
+		else
+			_tmp[k] = v;
+		end
+
+	    ::continue::
+	end
+
+	return _tmp;
+
+	---|fE
+end
 
 
 
+
+--- Block quotes & callouts.
+---@param node table
+---@return string
+markdoc.BlockQuote = function (node, _, width)
+	---|fS
+
+	local _output = "";
+	local config = markdoc.config.block_quotes.default;
+
+	--- Updates block quote config.
+	---@param line string
+	local function update_config(line)
+		---|fS
+
+		if string.match(line, "^%s*%[!") == nil then
+			return;
+		end
+
+		local callout, title = line:match("^%s*%[%!([^%]]+)%]%s*(.-)$");
+		local keys = {};
+
+		for k, _ in pairs(markdoc.config.block_quotes) do
+			if k ~= "default" then
+				table.insert(keys, k);
+			end
+		end
+
+		table.sort(keys);
+
+		for _, key in ipairs(keys) do
+			if string.match(string.lower(callout), string.lower(key)) then
+				config = extend(config, markdoc.config.block_quotes[key]);
+
+				if title ~= "" then
+					config.title = title;
+				end
+
+				return;
+			end
+		end
+
+		---|fE
+	end
+
+	local border_drawable = function (drawable, line)
+		if drawable == true and string.match(drawable, "%>.-$") then
+			return false;
+		elseif drawable == false and string.match(drawable, "^%<") then
+			return true;
+		end
+
+		return true;
+	end
+
+	for e, entry in ipairs(node.content) do
+		local content = markdoc.treverse({ entry }, "", width - 2):gsub("^\n", "");
+		local paragraph = split(content, "\n");
+
+		--- Should we draw the border?
+		---@type boolean
+		local border = true;
+
+		for l, line in ipairs(paragraph) do
+			if e == 1 and l == 1 then
+				update_config(line);
+
+				if config.title then
+					_output = _output .. "\n" .. (config.border or "") .. " " .. (config.icon or "") .. (config.title or "");
+				elseif config.callout then
+					_output = _output .. "\n" .. (config.callout or "");
+				else
+					_output = _output .. "\n" .. (config.border or "") .. " " .. line;
+				end
+			else
+				border = border_drawable(border, line);
+
+				if border == false then
+					_output = _output .. "\n" .. "  " .. line;
+				else
+					_output = _output .. "\n" .. (config.border or "") .. " " .. line;
+				end
+			end
+		end
+	end
+
+	return _output;
+
+	---|fE
+end
 
 --- Bullet list(+, -, *);
 ---@param node table
@@ -214,7 +336,7 @@ markdoc.Header = function (node, _, width)
 		---|fE
 	end
 
-	local function tag_lines(tags, width)
+	local function tag_lines(tags, _width)
 		---|fS
 
 		local _output = {};
@@ -222,16 +344,16 @@ markdoc.Header = function (node, _, width)
 
 		for _, tag in ipairs(tags) do
 			local _tag = string.format(" *%s*", tag);
-			local tag_length = utf8.len(_tag);
+			local tag_length = utf8.len(_tag)  --[[ @as integer ]];
 
 			if tag_length > width then
 				goto continue;
 			end
 
-			if #_output == 0 or tag_length == width then
+			if #_output == 0 or tag_length == _width then
 				table.insert(_output, _tag);
 				line_length = tag_length;
-			elseif (line_length + tag_length) > width then
+			elseif (line_length + tag_length) > _width then
 				table.insert(_output, _tag);
 				line_length = tag_length;
 			else
@@ -619,6 +741,16 @@ markdoc.treverse = function (parent, between, width)
 
 	local _output = "";
 
+	local function add_between(node)
+		if _output == "" then
+			return false;
+		elseif between == "\n" then
+			return node.t ~= "SoftBreak";
+		else
+			return _output ~= "";
+		end
+	end
+
 	markdoc.state.depth = markdoc.state.depth + 1;
 
 	for _, item in ipairs(parent) do
@@ -628,7 +760,7 @@ markdoc.treverse = function (parent, between, width)
 			local can_call, val = pcall(markdoc[item.t], item, _output, width);
 
 			if can_call and type(val) == "string" then
-				_output = _output .. (_output ~= "" and between or "") .. val;
+				_output = _output .. (add_between(item) == true and between or "") .. val;
 			elseif can_call == false then
 				print(val)
 			end
