@@ -82,6 +82,7 @@ local function escape (input)
 
 	return input;
 end
+
 local function wrap(text, width)
 	---|fS
 
@@ -93,13 +94,60 @@ local function wrap(text, width)
 	--- If there's a newline then that's a
 	--- mistake.
 	local _text = string.gsub(text, "\n", "");
+	local tokens = {};
 
-	while string.match(_text, "^%s+") or string.match(_text, "^`[^`]`") or string.match(_text, "^%S+") do
+	local code_at;
+
+	local function merge_tokens ()
+		local merged = "";
+
+		for t, token in ipairs(tokens) do
+			if t > code_at then
+				merged = merged .. tokens[t];
+				tokens[t] = nil;
+			end
+		end
+
+		table.insert(tokens, merged .. "`");
+	end
+
+	for _, code in utf8.codes(_text) do
+		local char = utf8.char(code);
+		local is_whitespace = string.match(char, "%s") ~= nil;
+
+		if is_whitespace then
+			if #tokens > 0 and string.match(tokens[#tokens], "^%s+$") then
+				tokens[#tokens] = tokens[#tokens] .. char;
+			else
+				table.insert(tokens, char);
+			end
+		elseif char == "`" then
+			if not code_at then
+				code_at = #tokens;
+
+				if #tokens > 0 and string.match(tokens[#tokens], "^%S+$") then
+					tokens[#tokens] = tokens[#tokens] .. char;
+				else
+					table.insert(tokens, char);
+				end
+			else
+				merge_tokens();
+				code_at = nil;
+			end
+		else
+			if #tokens > 0 and string.match(tokens[#tokens], "^%S+$") then
+				tokens[#tokens] = tokens[#tokens] .. char;
+			else
+				table.insert(tokens, char);
+			end
+		end
+	end
+
+	for _, token in ipairs(tokens) do
+		local len = utf8.len(token) or 0;
+
 		if string.match(_text, "^%s+") then
 			---|fS
-
-			local token = string.match(_text, "^%s+");
-			local len = utf8.len(token) or 0;
 
 			--- Only add whitespace if we aren't in a new line
 			--- and the output isn't empty.
@@ -115,11 +163,8 @@ local function wrap(text, width)
 		elseif string.match(_text, "^`[^`]+`") then
 			---|fS
 
-			local token = string.match(_text, "^`[^`]+`");
-			local len = utf8.len(token) or 0;
-
 			--- Discard inline codes that are very big.
-			if line_length <= width then
+			if len <= width then
 				if line_length + len <= width then
 					_output = _output .. token;
 					line_length = line_length + len;
@@ -127,25 +172,28 @@ local function wrap(text, width)
 					_output = _output .. "\n" .. token;
 					line_length = len;
 				end
-			end
 
-			_text = string.gsub(_text, "^" .. escape(token), "", 1);
+				_text = string.gsub(_text, "^" .. escape(token), "", 1);
+			else
+				_text = string.gsub(_text, "^" .. token, token:gsub("`", ""), 1);
+			end
 
 			---|fE
 		else
 			---|fS
 
-			local token = string.match(_text, "^%S+");
-			local len = utf8.len(token) or 0;
-
 			if len >= width then
 				local times = (len // width) + 1;
+				local chars = 0;
 
-				for i = 1, times do
-					local start = utf8.offset(token, (i - 1) * width);
-					local till = utf8.offset(token, i * width);
+				for _, code in utf8.codes(token) do
+					if chars == width then
+						_output = _output .. "\n";
+						chars = 0;
+					end
 
-					_output = _output .. "\n" .. string.sub(token, start, till);
+					_output = _output .. utf8.char(code);
+					chars = chars + 1;
 				end
 			elseif (line_length + len) >= width then
 				line_length = len;
@@ -192,7 +240,11 @@ local function align(alignment, text, width)
 	alignment = alignment or "l";
 	width = math.floor(width or markdoc.config.width);
 
-	local LEN = utf8.len(text)
+	local LEN = utf8.len(text);
+
+	if not LEN then
+		return text;
+	end
 
 	if alignment == "l" then
 		return text .. string.rep(" ", width - LEN)
@@ -491,8 +543,6 @@ markdoc.CodeBlock = function (node)
 	local language = node.classes[1] or "";
 	local lines = split(node.text, "\n");
 
-	print(node.text)
-
 	local _output = string.format("\n>%s\n", language);
 
 	for _, line in ipairs(lines) do
@@ -573,7 +623,7 @@ markdoc.Header = function (node, _, width)
 		---|fE
 	end
 
-	local txt = markdoc.traverse(node.content, " ");
+	local txt = markdoc.traverse(node.content, "");
 	local tags = get_tags(txt);
 
 	if node.level == 1 or node.level == 2 then
@@ -606,7 +656,7 @@ markdoc.Header = function (node, _, width)
 			_o = _o .. wrap(txt);
 		end
 
-		return _o;
+		return _o .. "\n";
 
 		---|fE
 	elseif node.level == 3 then
@@ -628,7 +678,7 @@ markdoc.Header = function (node, _, width)
 			_o = _o .. table.concat(lines, "\n");
 		end
 
-		return _o;
+		return _o .. "\n";
 
 		---|fE
 	else
@@ -651,7 +701,7 @@ markdoc.Header = function (node, _, width)
 			_o = _o .. table.concat(lines, "\n");
 		end
 
-		return _o;
+		return _o .. "\n";
 
 		---|fE
 	end
@@ -1204,7 +1254,7 @@ function Writer (document)
 	markdoc.metadata_to_config(document.meta);
 	local converted = markdoc.traverse(document.blocks)
 
-	print(document.blocks)
-	print(converted);
+	-- print(document.blocks)
+	-- print(converted);
 	return converted;
 end
