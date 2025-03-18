@@ -253,10 +253,14 @@ local function align(alignment, text, width)
 	end
 
 	if alignment == "l" then
-		return text .. string.rep(" ", width - LEN)
+		return text .. string.rep(" ", width - LEN);
 	elseif alignment == "r" then
-		return string.rep(" ", width - LEN) .. text
+		return string.rep(" ", width - LEN) .. text;
 	else
+		local L = math.ceil((width - LEN) / 2);
+		local R = math.floor((width - LEN) / 2);
+
+		return string.rep(" ", L) .. text .. string.rep(" ", R);
 	end
 
 	---|fE
@@ -1000,6 +1004,101 @@ markdoc.Plain = function (node, _, width)
 	return wrap(markdoc.traverse(node.content), width);
 end
 
+--- HTML block elements.
+---@param node table
+---@return string
+markdoc.RawBlock = function (node)
+	---|fS
+
+	if node.format ~= "html" then
+		return "";
+	end
+
+	if string.match(node.text, "^</") then
+		local tag = string.match(node.text, "^</(%S*)"):lower();
+		local inline = { "span", "em", "i", "b" };
+
+		for _, item in ipairs(inline) do
+			if item == tag then
+				--- Closing tags for inline elements
+				--- shouldn't end with anything.
+				return "";
+			end
+		end
+
+		--- Closing tags for block elements
+		--- should end with a newline.
+		return "\n";
+	elseif string.match(node.text, "align") then
+		local alignment = string.match(node.text, "align%s*=%s*[\"']([^\"']+)[\"']")
+
+		--- Tag text alignment
+		if alignment == "center" then
+			return "::MKDocCenter::"
+		elseif alignment == "right" then
+			return "::MKDocRight::"
+		else
+			return "::MKDocLeft::"
+		end
+	end
+
+	return "";
+
+	---|fE
+end
+
+markdoc.Div = function (node)
+	local _output = markdoc.traverse(node.content):gsub("^%s*%>", ""):gsub("%<%s*$", "");
+
+	if node.attr then
+		local attributes = node.attr.attributes;
+
+		if attributes.align then
+			local alignment = attributes.align;
+
+			--- Tag text alignment
+			if alignment == "center" then
+				_output = "::MKDocCenter::" .. _output;
+			elseif alignment == "right" then
+				_output = "::MKDocRight::" .. _output;
+			else
+				_output = "::MKDocLeft::" .. _output;
+			end
+		end
+	end
+
+	return _output .. "\n";
+end
+
+--- HTML inline elements.
+---@param node table
+---@return string
+markdoc.RawInline = function (node)
+	---|fS
+
+	if node.format ~= "html" then
+		return "";
+	elseif string.match(node.text, "^<img") then
+		local src = string.match(node.text, "src%s*=%s*[\"']([^\"']+)[\"']")
+
+		if src then
+			local _src = new_image_ref(src);
+			return "image" .. _src;
+		end
+	elseif string.match(node.text, "^<a") then
+		local href = string.match(node.text, "href%s*=%s*[\"']([^\"']+)[\"']")
+
+		if href then
+			local _href = new_link_ref(href);
+			return _href;
+		end
+	end
+
+	return "";
+
+	---|fE
+end
+
 --- Regular string.
 ---@param node table
 ---@return string
@@ -1181,8 +1280,6 @@ markdoc.Table = function (node)
 
 	--- Bottom section
 	decorators(bot)
-
-	print(_output)
 	return _output;
 
 	---|fE
@@ -1327,14 +1424,42 @@ markdoc.traverse = function (parent, between, width)
 	---|fE
 end
 
+
+local function fix_newlines (output)
+	return string.gsub(output, "\n\n\n+", "\n\n");
+end
+
+local function align_tags (output)
+	output = string.gsub(output, "::MKDocCenter::[^\n]*\n", function (val)
+		local _val = string.gsub(val, "::MKDocCenter::", ""):gsub("\n$", "");
+		return align("c", _val, markdoc.config.width) .. "\n";
+	end);
+
+	output = string.gsub(output, "::MKDocLeft::[^\n]*\n", function (val)
+		local _val = string.gsub(val, "::MKDocLeft::", ""):gsub("\n$", "");
+		return align("l", _val, markdoc.config.width) .. "\n";
+	end);
+
+	output = string.gsub(output, "::MKDocRight::[^\n]*\n", function (val)
+		local _val = string.gsub(val, "::MKDocRight::", ""):gsub("\n$", "");
+		return align("r", _val, markdoc.config.width) .. "\n";
+	end);
+
+	return output;
+end
+
+
 --- Writer for markdoc.
 ---@param document table
 ---@return string
 function Writer (document)
 	markdoc.metadata_to_config(document.meta);
-	local converted = markdoc.traverse(document.blocks)
+	local converted = markdoc.traverse(document.blocks):gsub("[ ]+%<", "<");
 
-	-- print(document.blocks)
-	-- print(converted);
+	converted = fix_newlines(converted);
+	converted = align_tags(converted);
+
+	print(document.blocks)
+	print(converted);
 	return converted;
 end
