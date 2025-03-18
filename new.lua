@@ -21,6 +21,19 @@ markdoc.config = {
 		note = {
 			callout = "▌ Note"
 		}
+	},
+	table = {
+		width = 10,
+
+		top = { "╭", "─", "╮", "┬" },
+		header = { "│", "│", "│" },
+
+		separator = { "├", "─", "┤", "┼" },
+		header_separator = { "├", "─", "┤", "┼" },
+		row_separator = { "├", "─", "┤", "┼" },
+
+		row = { "│", "│", "│" },
+		bottom = { "╰", "─", "╯", "┴" }
 	}
 };
 
@@ -47,6 +60,28 @@ local function str(data)
 	---|fE
 end
 
+--- Escapes magic characters from a string
+---@param input string
+---@return string
+local function escape (input)
+	input = input:gsub("%%", "%%%%");
+
+	input = input:gsub("%(", "%%(");
+	input = input:gsub("%)", "%%)");
+
+	input = input:gsub("%.", "%%.");
+	input = input:gsub("%+", "%%+");
+	input = input:gsub("%-", "%%-");
+	input = input:gsub("%*", "%%*");
+	input = input:gsub("%?", "%%?");
+	input = input:gsub("%^", "%%^");
+	input = input:gsub("%$", "%%$");
+
+	input = input:gsub("%[", "%%[");
+	input = input:gsub("%]", "%%]");
+
+	return input;
+end
 local function wrap(text, width)
 	---|fS
 
@@ -54,28 +89,78 @@ local function wrap(text, width)
 	local _output = "";
 	local line_length = 0;
 
-	for token in string.gmatch(text, "%S+") do
-		---@type integer Token length.
-		local token_length = utf8.len(token) or 0;
+	--- Wrapping should be only for single lines.
+	--- If there's a newline then that's a
+	--- mistake.
+	local _text = string.gsub(text, "\n", "");
 
-		if token_length >= width then
-			local times = (token_length // width) + 1;
+	while string.match(_text, "^%s+") or string.match(_text, "^`[^`]`") or string.match(_text, "^%S+") do
+		if string.match(_text, "^%s+") then
+			---|fS
 
-			for i = 1, times do
-				local start = utf8.offset(token, (i - 1) * width);
-				local till = utf8.offset(token, i * width);
+			local token = string.match(_text, "^%s+");
+			local len = utf8.len(token) or 0;
 
-				_output = _output .. "\n" .. string.sub(token, start, till);
+			--- Only add whitespace if we aren't in a new line
+			--- and the output isn't empty.
+			--- Also check if we have enough space
+			if (line_length + len) < width and _output ~= "" and string.match(_output, "[^%s]$") then
+				_output = _output .. token;
+				line_length = line_length + len;
 			end
-		elseif (line_length + token_length) >= width then
-			line_length = token_length;
-			_output = _output .. "\n" .. token;
-		elseif _output == "" then
-			line_length = line_length + token_length;
-			_output = _output .. token;
+
+			_text = string.gsub(_text, "^" .. escape(token), "", 1);
+
+			---|fE
+		elseif string.match(_text, "^`[^`]+`") then
+			---|fS
+
+			local token = string.match(_text, "^`[^`]+`");
+			local len = utf8.len(token) or 0;
+
+			--- Discard inline codes that are very big.
+			if line_length <= width then
+				if line_length + len <= width then
+					_output = _output .. token;
+					line_length = line_length + len;
+				else
+					_output = _output .. "\n" .. token;
+					line_length = len;
+				end
+			end
+
+			_text = string.gsub(_text, "^" .. escape(token), "", 1);
+
+			---|fE
 		else
-			line_length = line_length + 1 + token_length;
-			_output = _output .. " " .. token;
+			---|fS
+
+			local token = string.match(_text, "^%S+");
+			local len = utf8.len(token) or 0;
+
+			if len >= width then
+				local times = (len // width) + 1;
+
+				for i = 1, times do
+					local start = utf8.offset(token, (i - 1) * width);
+					local till = utf8.offset(token, i * width);
+
+					_output = _output .. "\n" .. string.sub(token, start, till);
+				end
+			elseif (line_length + len) >= width then
+				line_length = len;
+				_output = _output .. "\n" .. token;
+			elseif _output == "" then
+				line_length = line_length + len;
+				_output = _output .. token;
+			else
+				line_length = line_length + 1 + len;
+				_output = _output .. token;
+			end
+
+			_text = string.gsub(_text, "^" .. escape(token), "", 1);
+
+			---|fE
 		end
 	end
 
@@ -169,6 +254,7 @@ end
 
 --- Block quotes & callouts.
 ---@param node table
+---@param width integer
 ---@return string
 markdoc.BlockQuote = function (node, _, width)
 	---|fS
@@ -256,9 +342,9 @@ markdoc.BlockQuote = function (node, _, width)
 		local content;
 
 		if should_wrap(entry) == false then
-			content = markdoc.treverse({ entry }, "", 9999):gsub("^\n", "");
+			content = markdoc.traverse({ entry }, "", 9999):gsub("^\n", "");
 		else
-			content = markdoc.treverse({ entry }, "", width - 2):gsub("^\n", "");
+			content = markdoc.traverse({ entry }, "", width - 2):gsub("^\n", "");
 		end
 
 		local paragraph = split(content, "\n");
@@ -297,6 +383,7 @@ end
 
 --- Bullet list(+, -, *);
 ---@param node table
+---@param width integer
 ---@return string
 markdoc.BulletList = function (node, _, width)
 	---|fS
@@ -312,21 +399,51 @@ markdoc.BulletList = function (node, _, width)
 		local W = width or markdoc.config.width;
 		local indent = markdoc.state.depth * 2;
 
-		local content = markdoc.treverse(candidate);
+		local content = markdoc.traverse(candidate):gsub("^\n", "");
+		local should_wrap = true;
+		local within_table = false;
+
+		local function update_state (line)
+			local blck = markdoc.config.block_quotes.default.border;
+
+			local top = markdoc.config.table.top;
+			local bot = markdoc.config.table.bottom;
+
+			if should_wrap == true and string.match(line, "%>.*") then
+				should_wrap = false;
+			elseif should_wrap == true and string.match(line, "^%<") then
+				should_wrap = true;
+			elseif should_wrap == true and string.match(line, blck) then
+				should_wrap = false;
+			elseif within_table == false and string.match(line, top[1] .. top[2]) then
+				should_wrap = false;
+				within_table = true;
+			elseif within_table == true and string.match(line, bot[1] .. bot[2]) then
+				should_wrap = false;
+				within_table = false;
+			elseif within_table == false then
+				should_wrap = true;
+			end
+		end
 
 		for p, paragraph in ipairs(split(content, "\n")) do
 			local wrapped = wrap(paragraph, W - (indent + 2));
 
 			for l, line in ipairs(split(wrapped, "\n")) do
+				update_state(line);
 				_output = _output .. string.rep(" ", indent);
 
-				if l == 1 and p == 1 then
-					_output = _output .. "• " .. line;
-				else
-					_output = _output .. "  " .. line;
-				end
+				if should_wrap then
+					if l == 1 and p == 1 then
+						_output = _output .. "• " .. line;
+					else
+						_output = _output .. "  " .. line;
+					end
 
-				_output = _output .. "\n";
+					_output = _output .. "\n";
+				else
+					_output = _output .. "  " .. line .. "\n";
+				end
 			end
 		end
 
@@ -371,6 +488,7 @@ end
 
 --- Markdown heading
 ---@param node table
+---@param width integer
 ---@return string
 markdoc.Header = function (node, _, width)
 	---|fS
@@ -430,7 +548,7 @@ markdoc.Header = function (node, _, width)
 		---|fE
 	end
 
-	local txt = markdoc.treverse(node.content, " ");
+	local txt = markdoc.traverse(node.content, " ");
 	local tags = get_tags(txt);
 
 	if node.level == 1 or node.level == 2 then
@@ -516,8 +634,16 @@ markdoc.Header = function (node, _, width)
 	---|fE
 end
 
+--- Horizontal rule.
+---@param width integer
+---@return string
+markdoc.HorizontalRule = function (_, _, width)
+	return "\n" .. string.rep("-", width) .. "\n";
+end
+
 --- Numbered list(1., 1));
 ---@param node table
+---@param width integer
 ---@return string
 markdoc.OrderedList = function (node, _, width)
 	---|fS
@@ -637,7 +763,7 @@ markdoc.OrderedList = function (node, _, width)
 		local W = width or markdoc.config.width;
 		local indent = markdoc.state.depth * 2;
 
-		local content = markdoc.treverse(candidate);
+		local content = markdoc.traverse(candidate);
 		local lnum, lnum_len = get_marker(L);
 
 		for p, paragraph in ipairs(split(content, "\n")) do
@@ -683,18 +809,168 @@ end
 --- A paragraph.
 ---@param node table
 ---@return string
-markdoc.Para = function (node)
-	return "\n" .. markdoc.treverse(node.content) .. "\n";
+markdoc.Para = function (node, _, width)
+	return "\n" .. wrap(markdoc.traverse(node.content), width) .. "\n";
 end
 
 --- Plain text
 ---@param node table
 ---@return string
-markdoc.Plain = function (node)
-	return markdoc.treverse(node.content);
+markdoc.Plain = function (node, _, width)
+	return wrap(markdoc.traverse(node.content), width);
 end
 
+--- Table
+---@param node table
+---@return string
+markdoc.Table = function (node)
+	---|fS
 
+	local alignments = {};
+	local widths = {};
+
+	for _, col in ipairs(node.colspecs) do
+		---|fS
+
+		if col[1] == "AlignDefault" then
+			table.insert(alignments, "l");
+		elseif col[1] == "AlignLeft" then
+			table.insert(alignments, "l");
+		elseif col[1] == "AlignRight" then
+			table.insert(alignments, "r");
+		else
+			table.insert(alignments, "c");
+		end
+
+		if type(col[2]) == "number" then
+			table.insert(widths, col[2]);
+		else
+			table.insert(widths, markdoc.config.table.width);
+		end
+
+		---|fE
+	end
+
+	local W = (markdoc.config.table.width or 10) - 2;
+
+	local function handle_row (as, row)
+		---|fS
+
+		local borders = markdoc.config.table[as] or {};
+
+		local columns = {};
+		local row_height = 1;
+
+		for _, cell in ipairs(row) do
+			local tmp = markdoc.traverse(cell.content, nil, W);
+			local lines = split(tmp, "\n");
+
+			if #lines > row_height then
+				row_height = #lines;
+			end
+
+			table.insert(columns, lines);
+		end
+
+		local _output = "";
+
+		for h = 1, row_height do
+			local _line = "";
+
+			for c, col in ipairs(columns) do
+				_line = _line .. (c == 1 and borders[1] or borders[2]) .. " " .. align(alignments[c], col[h] or "", W) .. " ";
+			end
+
+			_output = _output .. _line .. borders[3] .. "\n";
+		end
+
+		return _output;
+
+		---|fE
+	end
+
+	local top = markdoc.config.table.top;
+	local h_s = markdoc.config.table.header_separator;
+	local sep = markdoc.config.table.separator;
+	local bot = markdoc.config.table.bottom;
+
+	local function get_border(borders, index)
+		---|fS
+
+		if type(borders) ~= "table" then
+			return " ";
+		elseif borders[index] == nil then
+			return " ";
+		end
+
+		return borders[index];
+
+		---|fE
+	end
+
+	local _output = "";
+
+	local function decorators(src)
+		---|fS
+
+		_output = _output .. get_border(src, 1);
+		for c, _ in ipairs(alignments) do
+			_output = _output .. (c ~= 1 and get_border(src, 4) or "") .. string.rep(get_border(src, 2), W + 2);
+		end
+		_output = _output .. get_border(src, 3) .. "\n";
+
+		---|fE
+	end
+
+	--- Top section
+	decorators(top)
+
+	for r, row in ipairs(node.head.rows or {}) do
+		---|fS
+
+		_output = _output .. handle_row("header", row.cells);
+
+		if r ~= #node.head.rows then
+			_output = _output .. get_border(h_s, 1);
+			for c, _ in ipairs(alignments) do
+				_output = _output .. (c ~= 1 and get_border(h_s, 4) or " ") .. string.rep(get_border(h_s, 2) or " ", W + 2);
+			end
+			_output = _output .. get_border(h_s, 3) .. "\n";
+		end
+
+		---|fE
+	end
+
+	--- Separator
+	decorators(sep)
+
+	--- Table bodies(yeah, there can be multiple bodies).
+	for _, row in ipairs(node.bodies or {}) do
+		---|fS
+
+		--- Bodies are just lists of rows.
+		for i, item in ipairs(row.body) do
+			_output = _output .. handle_row("row", item.cells);
+
+			if i ~= #row.body then
+				_output = _output .. get_border(h_s, 1);
+				for c, _ in ipairs(alignments) do
+					_output = _output .. (c ~= 1 and get_border(h_s, 4) or "") .. string.rep(get_border(h_s, 2) or " ", W + 2);
+				end
+				_output = _output .. get_border(h_s, 3) .. "\n";
+			end
+		end
+
+		---|fE
+	end
+
+	--- Bottom section
+	decorators(bot)
+
+	return _output;
+
+	---|fE
+end
 
 
 
@@ -757,8 +1033,8 @@ markdoc.metadata_to_config = function (metadata)
 			---     note = { border = "|", top = "→ Note" }
 			--- }
 			markdoc.config.block_quotes = value;
-		elseif option == "tables" then
-			markdoc.config.tables = value;
+		elseif option == "table" then
+			markdoc.config.table = value;
 		elseif option == "width" then
 			markdoc.config.width = value;
 		end
@@ -794,7 +1070,7 @@ end
 --- Traverses the AST.
 ---@param parent table[]
 ---@return string
-markdoc.treverse = function (parent, between, width)
+markdoc.traverse = function (parent, between, width)
 	---|fS
 
 	between = between or "";
@@ -816,7 +1092,7 @@ markdoc.treverse = function (parent, between, width)
 
 	for _, item in ipairs(parent) do
 		if is_list(item) then
-			_output = _output .. markdoc.treverse(item, between, width);
+			_output = _output .. markdoc.traverse(item, between, width);
 		elseif markdoc[item.t] then
 			local can_call, val = pcall(markdoc[item.t], item, _output, width);
 
@@ -840,7 +1116,7 @@ end
 ---@return string
 function Writer (document)
 	markdoc.metadata_to_config(document.meta);
-	local converted = markdoc.treverse(document.blocks)
+	local converted = markdoc.traverse(document.blocks)
 
 	-- print(document.blocks)
 	print(converted);
