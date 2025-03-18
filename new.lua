@@ -463,6 +463,24 @@ markdoc.BulletList = function (node, _, width)
 	---|fE
 end
 
+--- Inline code
+---@param node table
+---@param width integer
+---@return string
+markdoc.Code = function (node, _, width)
+	---|fS
+
+	local len = utf8.len(node.text)
+
+	if len >= width * 0.4 then
+		return node.text;
+	else
+		return string.format("`%s`", node.text)
+	end
+
+	---|fE
+end
+
 --- Code block.
 ---@param node table
 ---@return string
@@ -484,6 +502,13 @@ markdoc.CodeBlock = function (node)
 	return _output .. "<\n";
 
 	---|fE
+end
+
+--- Emphasized text.
+---@param node table
+---@return string
+markdoc.Emph = function (node)
+	return markdoc.traverse(node.content, " ");
 end
 
 --- Markdown heading
@@ -832,13 +857,6 @@ markdoc.OrderedList = function (node, _, width)
 	---|fE
 end
 
---- Regular string.
----@param node table
----@return string
-markdoc.Str = function (node)
-	return node.text;
-end
-
 --- A paragraph.
 ---@param node table
 ---@return string
@@ -851,6 +869,41 @@ end
 ---@return string
 markdoc.Plain = function (node, _, width)
 	return wrap(markdoc.traverse(node.content), width);
+end
+
+--- Regular string.
+---@param node table
+---@return string
+markdoc.Str = function (node)
+	return node.text;
+end
+
+--- Striked text.
+---@param node table
+---@return string
+markdoc.Strikeout = function (node)
+	return markdoc.traverse(node.content, " ");
+end
+
+--- Bold text.
+---@param node table
+---@return string
+markdoc.Strong = function (node)
+	return markdoc.traverse(node.content, " ");
+end
+
+--- Subscript text.
+---@param node table
+---@return string
+markdoc.Subscript = function (node)
+	return markdoc.traverse(node.content, " ");
+end
+
+--- Superscript text.
+---@param node table
+---@return string
+markdoc.Superscript = function (node)
+	return markdoc.traverse(node.content, " ");
 end
 
 --- Table
@@ -1151,7 +1204,7 @@ function Writer (document)
 	markdoc.metadata_to_config(document.meta);
 	local converted = markdoc.traverse(document.blocks)
 
-	-- print(document.blocks)
+	print(document.blocks)
 	print(converted);
 	return converted;
 end
