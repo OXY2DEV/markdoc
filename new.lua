@@ -766,19 +766,52 @@ markdoc.OrderedList = function (node, _, width)
 		local content = markdoc.traverse(candidate);
 		local lnum, lnum_len = get_marker(L);
 
+		local should_wrap = true;
+		local within_table = false;
+
+		local function update_state (line)
+			local blck = markdoc.config.block_quotes.default.border;
+
+			local top = markdoc.config.table.top;
+			local bot = markdoc.config.table.bottom;
+
+			if should_wrap == true and string.match(line, "%>.*") then
+				should_wrap = false;
+			elseif should_wrap == true and string.match(line, "^%<") then
+				should_wrap = true;
+			elseif should_wrap == true and string.match(line, blck) then
+				should_wrap = false;
+			elseif within_table == false and string.match(line, top[1] .. top[2]) then
+				should_wrap = false;
+				within_table = true;
+			elseif within_table == true and string.match(line, bot[1] .. bot[2]) then
+				should_wrap = false;
+				within_table = false;
+			elseif within_table == false then
+				should_wrap = true;
+			end
+		end
+
 		for p, paragraph in ipairs(split(content, "\n")) do
-			local wrapped = wrap(paragraph, W - (indent + 2));
+			update_state(paragraph)
 
-			for l, line in ipairs(split(wrapped, "\n")) do
-				_output = _output .. string.rep(" ", indent);
+			if should_wrap == true then
+				local wrapped = wrap(paragraph, W - (indent + 2));
 
-				if l == 1 and p == 1 then
-					_output = _output .. lnum .. (delim or ".") .. " " .. line;
-				else
-					_output = _output .. string.rep(" ", lnum_len) .. "  " .. line;
+				for l, line in ipairs(split(wrapped, "\n")) do
+					_output = _output .. string.rep(" ", indent);
+
+					if l == 1 and p == 1 then
+						_output = _output .. lnum .. (delim or ".") .. " " .. line;
+					else
+						_output = _output .. string.rep(" ", lnum_len) .. "  " .. line;
+					end
+
+					_output = _output .. "\n";
 				end
-
-				_output = _output .. "\n";
+			else
+				_output = _output .. string.rep(" ", indent);
+				_output = _output .. string.rep(" ", lnum_len) .. "  " .. paragraph .. "\n";
 			end
 		end
 
