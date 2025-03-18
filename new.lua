@@ -39,6 +39,8 @@ markdoc.config = {
 
 markdoc.state = {
 	depth = 0,
+	link_refs = {},
+	image_refs = {}
 };
 
 
@@ -64,6 +66,8 @@ end
 ---@param input string
 ---@return string
 local function escape (input)
+	---|fS
+
 	input = input:gsub("%%", "%%%%");
 
 	input = input:gsub("%(", "%%(");
@@ -81,6 +85,8 @@ local function escape (input)
 	input = input:gsub("%]", "%%]");
 
 	return input;
+
+	---|fE
 end
 
 local function wrap(text, width)
@@ -93,7 +99,7 @@ local function wrap(text, width)
 	--- Wrapping should be only for single lines.
 	--- If there's a newline then that's a
 	--- mistake.
-	local _text = string.gsub(text, "\n", "");
+	local _text = text;
 	local tokens = {};
 
 	local code_at;
@@ -301,6 +307,57 @@ local function extend(src, apply)
 	---|fE
 end
 
+local function new_link_ref(entry)
+	local nums = {
+		["0"] = "⁰",
+		["1"] = "¹",
+		["2"] = "²",
+		["3"] = "³",
+		["4"] = "⁴",
+		["5"] = "⁵",
+		["6"] = "⁶",
+		["7"] = "⁷",
+		["8"] = "⁸",
+		["9"] = "⁹",
+	};
+
+	table.insert(markdoc.state.link_refs, entry);
+	local num = tostring(#markdoc.state.link_refs);
+
+	local ref = "";
+
+	for digit in string.gmatch(num, ".") do
+		ref = nums[digit];
+	end
+
+	return ref;
+end
+
+local function new_image_ref(entry)
+	local nums = {
+		["0"] = "₀",
+		["1"] = "₁",
+		["2"] = "₂",
+		["3"] = "₃",
+		["4"] = "₄",
+		["5"] = "₅",
+		["6"] = "₆",
+		["7"] = "₇",
+		["8"] = "₈",
+		["9"] = "₉",
+	};
+
+	table.insert(markdoc.state.image_refs, entry);
+	local num = tostring(#markdoc.state.image_refs);
+
+	local ref = "";
+
+	for digit in string.gmatch(num, ".") do
+		ref = nums[digit];
+	end
+
+	return ref;
+end
 
 
 
@@ -714,6 +771,28 @@ end
 ---@return string
 markdoc.HorizontalRule = function (_, _, width)
 	return "\n" .. string.rep("-", width) .. "\n";
+end
+
+--- Links.
+---@param node table
+---@param width integer
+---@return string
+markdoc.Link = function (node, _, width)
+	local content = markdoc.traverse(node.content);
+	local ref = new_link_ref(node.target);
+
+	return wrap(content .. ref, width);
+end
+
+--- Image.
+---@param node table
+---@param width integer
+---@return string
+markdoc.Image = function (node, _, width)
+	local content = markdoc.traverse(node.caption);
+	local ref = new_image_ref(node.src);
+
+	return wrap(content .. ref, width);
 end
 
 --- Numbered list(1., 1));
@@ -1255,6 +1334,6 @@ function Writer (document)
 	local converted = markdoc.traverse(document.blocks)
 
 	-- print(document.blocks)
-	-- print(converted);
+	print(converted);
 	return converted;
 end
