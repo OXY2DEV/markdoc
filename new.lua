@@ -2,7 +2,7 @@
 local markdoc = {};
 local inspect = require("inspect")
 
---- Bade configuration table
+--- Base configuration table
 --- for markdoc.
 ---@class markdoc.config
 ---
@@ -39,6 +39,8 @@ markdoc.config = {
 
 markdoc.state = {
 	depth = 0,
+	within_tag = nil,
+
 	link_refs = {},
 	image_refs = {}
 };
@@ -96,10 +98,6 @@ local function wrap(text, width)
 	local _output = "";
 	local line_length = 0;
 
-	--- Wrapping should be only for single lines.
-	--- If there's a newline then that's a
-	--- mistake.
-	local _text = text;
 	local tokens = {};
 
 	local code_at;
@@ -107,7 +105,7 @@ local function wrap(text, width)
 	local function merge_tokens ()
 		local merged = "";
 
-		for t, token in ipairs(tokens) do
+		for t, _ in ipairs(tokens) do
 			if t > code_at then
 				merged = merged .. tokens[t];
 				tokens[t] = nil;
@@ -117,12 +115,14 @@ local function wrap(text, width)
 		table.insert(tokens, merged .. "`");
 	end
 
-	for _, code in utf8.codes(_text) do
+	for _, code in utf8.codes(text) do
 		local char = utf8.char(code);
 		local is_whitespace = string.match(char, "%s") ~= nil;
 
 		if is_whitespace then
-			if #tokens > 0 and string.match(tokens[#tokens], "^%s+$") then
+			if char == "\n" then
+				table.insert(tokens, "");
+			elseif #tokens > 0 and (tokens[#tokens] == "" or string.match(tokens[#tokens], "^%s+$") ~= nil) then
 				tokens[#tokens] = tokens[#tokens] .. char;
 			else
 				table.insert(tokens, char);
@@ -152,7 +152,7 @@ local function wrap(text, width)
 	for _, token in ipairs(tokens) do
 		local len = utf8.len(token) or 0;
 
-		if string.match(_text, "^%s+") then
+		if string.match(token, "^%s+") then
 			---|fS
 
 			--- Only add whitespace if we aren't in a new line
@@ -163,10 +163,8 @@ local function wrap(text, width)
 				line_length = line_length + len;
 			end
 
-			_text = string.gsub(_text, "^" .. escape(token), "", 1);
-
 			---|fE
-		elseif string.match(_text, "^`[^`]+`") then
+		elseif string.match(token, "^`[^`]+`") then
 			---|fS
 
 			--- Discard inline codes that are very big.
@@ -178,10 +176,6 @@ local function wrap(text, width)
 					_output = _output .. "\n" .. token;
 					line_length = len;
 				end
-
-				_text = string.gsub(_text, "^" .. escape(token), "", 1);
-			else
-				_text = string.gsub(_text, "^" .. token, token:gsub("`", ""), 1);
 			end
 
 			---|fE
@@ -189,7 +183,6 @@ local function wrap(text, width)
 			---|fS
 
 			if len >= width then
-				local times = (len // width) + 1;
 				local chars = 0;
 
 				for _, code in utf8.codes(token) do
@@ -211,8 +204,6 @@ local function wrap(text, width)
 				line_length = line_length + 1 + len;
 				_output = _output .. token;
 			end
-
-			_text = string.gsub(_text, "^" .. escape(token), "", 1);
 
 			---|fE
 		end
@@ -312,6 +303,8 @@ local function extend(src, apply)
 end
 
 local function new_link_ref(entry)
+	---|fS
+
 	local nums = {
 		["0"] = "⁰",
 		["1"] = "¹",
@@ -335,9 +328,13 @@ local function new_link_ref(entry)
 	end
 
 	return ref;
+
+	---|fE
 end
 
 local function new_image_ref(entry)
+	---|fS
+
 	local nums = {
 		["0"] = "₀",
 		["1"] = "₁",
@@ -361,7 +358,81 @@ local function new_image_ref(entry)
 	end
 
 	return ref;
+
+	---|fE
 end
+
+local function update_tag_state (text)
+	if string.match(text, "^</") then
+		local tag = string.match(text, "^</(%w+)");
+
+		if markdoc.state.within_tag and tag ~= markdoc.state.within_tag then
+			return;
+		else
+			markdoc.state.within_tag = nil;
+		end
+	else
+		local tag = string.match(text, "^<(%w+)");
+
+		if markdoc.state.within_tag then
+			return;
+		else
+			markdoc.state.within_tag = tag;
+		end
+	end
+end
+
+---@param val any
+---@return boolean
+local is_list = function (val)
+	---|fS
+
+	if type(val) ~= "table" then
+		return false;
+	end
+
+	local index = 0;
+
+	for _ in pairs(val) do
+		index = index + 1;
+
+		if val[index] == nil then
+			return false;
+		end
+	end
+
+	return true;
+
+	---|fE
+end
+
+local function fix_newlines (output)
+	return string.gsub(output, "\n\n\n+", "\n\n");
+end
+
+local function align_tags (output)
+	---|fS
+
+	output = string.gsub(output, "::MKDocCenter::[^\n]*\n", function (val)
+		local _val = string.gsub(val, "::MKDocCenter::", ""):gsub("\n$", "");
+		return align("c", _val, markdoc.config.width) .. "\n";
+	end);
+
+	output = string.gsub(output, "::MKDocLeft::[^\n]*\n", function (val)
+		local _val = string.gsub(val, "::MKDocLeft::", ""):gsub("\n$", "");
+		return align("l", _val, markdoc.config.width) .. "\n";
+	end);
+
+	output = string.gsub(output, "::MKDocRight::[^\n]*\n", function (val)
+		local _val = string.gsub(val, "::MKDocRight::", ""):gsub("\n$", "");
+		return align("r", _val, markdoc.config.width) .. "\n";
+	end);
+
+	return output;
+
+	---|fE
+end
+
 
 
 
@@ -619,7 +690,7 @@ end
 ---@param node table
 ---@return string
 markdoc.Emph = function (node)
-	return markdoc.traverse(node.content, " ");
+	return markdoc.traverse(node.content, "");
 end
 
 --- Markdown heading
@@ -1001,7 +1072,10 @@ end
 ---@param node table
 ---@return string
 markdoc.Plain = function (node, _, width)
-	return wrap(markdoc.traverse(node.content), width);
+	local content = markdoc.traverse(node.content);
+	local wrapped = wrap(content, width);
+
+	return wrapped;
 end
 
 --- HTML block elements.
@@ -1013,6 +1087,8 @@ markdoc.RawBlock = function (node)
 	if node.format ~= "html" then
 		return "";
 	end
+
+	update_tag_state(node.text);
 
 	if string.match(node.text, "^</") then
 		local tag = string.match(node.text, "^</(%S*)"):lower();
@@ -1076,6 +1152,8 @@ end
 markdoc.RawInline = function (node)
 	---|fS
 
+	update_tag_state(node.text);
+
 	if node.format ~= "html" then
 		return "";
 	elseif string.match(node.text, "^<img") then
@@ -1110,28 +1188,28 @@ end
 ---@param node table
 ---@return string
 markdoc.Strikeout = function (node)
-	return markdoc.traverse(node.content, " ");
+	return markdoc.traverse(node.content, "");
 end
 
 --- Bold text.
 ---@param node table
 ---@return string
 markdoc.Strong = function (node)
-	return markdoc.traverse(node.content, " ");
+	return markdoc.traverse(node.content, "");
 end
 
 --- Subscript text.
 ---@param node table
 ---@return string
 markdoc.Subscript = function (node)
-	return markdoc.traverse(node.content, " ");
+	return markdoc.traverse(node.content, "");
 end
 
 --- Superscript text.
 ---@param node table
 ---@return string
 markdoc.Superscript = function (node)
-	return markdoc.traverse(node.content, " ");
+	return markdoc.traverse(node.content, "");
 end
 
 --- Table
@@ -1286,8 +1364,6 @@ markdoc.Table = function (node)
 end
 
 
-
-
 --- Common whitespace.
 ---@return string
 markdoc.Space = function ()
@@ -1297,6 +1373,10 @@ end
 --- Soft line breaks.
 ---@return string
 markdoc.SoftBreak = function ()
+	if markdoc.state.within_tag then
+		return " ";
+	end
+
 	return "\n";
 end
 
@@ -1356,30 +1436,6 @@ markdoc.metadata_to_config = function (metadata)
 	---|fE
 end
 
----@param val any
----@return boolean
-local is_list = function (val)
-	---|fS
-
-	if type(val) ~= "table" then
-		return false;
-	end
-
-	local index = 0;
-
-	for _ in pairs(val) do
-		index = index + 1;
-
-		if val[index] == nil then
-			return false;
-		end
-	end
-
-	return true;
-
-	---|fE
-end
-
 --- Traverses the AST.
 ---@param parent table[]
 ---@return string
@@ -1425,30 +1481,6 @@ markdoc.traverse = function (parent, between, width)
 end
 
 
-local function fix_newlines (output)
-	return string.gsub(output, "\n\n\n+", "\n\n");
-end
-
-local function align_tags (output)
-	output = string.gsub(output, "::MKDocCenter::[^\n]*\n", function (val)
-		local _val = string.gsub(val, "::MKDocCenter::", ""):gsub("\n$", "");
-		return align("c", _val, markdoc.config.width) .. "\n";
-	end);
-
-	output = string.gsub(output, "::MKDocLeft::[^\n]*\n", function (val)
-		local _val = string.gsub(val, "::MKDocLeft::", ""):gsub("\n$", "");
-		return align("l", _val, markdoc.config.width) .. "\n";
-	end);
-
-	output = string.gsub(output, "::MKDocRight::[^\n]*\n", function (val)
-		local _val = string.gsub(val, "::MKDocRight::", ""):gsub("\n$", "");
-		return align("r", _val, markdoc.config.width) .. "\n";
-	end);
-
-	return output;
-end
-
-
 --- Writer for markdoc.
 ---@param document table
 ---@return string
@@ -1459,7 +1491,7 @@ function Writer (document)
 	converted = fix_newlines(converted);
 	converted = align_tags(converted);
 
-	print(document.blocks)
+	-- print(document.blocks)
 	print(converted);
 	return converted;
 end
