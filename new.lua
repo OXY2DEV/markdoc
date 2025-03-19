@@ -1,25 +1,27 @@
 --- Generic markdown to Vimdoc transformer.
 local markdoc = {};
 
+--- Options for block quotes.
 ---@class mkdoc.block_quote_opts
 ---
----@field border? string
----@field callout? string
----@field icon? string
+---@field border? string Border for block quotes.
+---@field callout? string Callout string for block quotes.
+---@field icon? string Icon before titles in block quotes.
 
 
+--- Options for tables.
 ---@class mkdoc.table_opts
 ---
----@field col_minwidth? integer
----@field top? string[]
----@field header? string[]
+---@field col_minwidth? integer Minimum column width.
+---@field top? string[] Top border.
+---@field header? string[] Border for headers.
 ---
----@field separator? string[]
----@field header_separator? string[]
----@field row_separator? string[]
+---@field separator? string[] Separator between header & rows.
+---@field header_separator? string[] Separator between headers.
+---@field row_separator? string[] Separator between rows.
 ---
----@field row? string[]
----@field bottom? string[]
+---@field row? string[] Border for rows.
+---@field bottom? string[] Bottom border.
 
 
 --- Base configuration table
@@ -31,26 +33,34 @@ local markdoc = {};
 ---@field tags table<string, string | string[]>
 ---@field block_quotes table<string, mkdoc.block_quote_opts>
 ---
+--- Document title.
 ---@field title? string
+--- Document title tag.
 ---@field title_tag? string
 ---
+--- Title for TOC.
 ---@field toc_title? string
+--- TOC entries.
 ---@field toc? table<string, string>
 ---
 ---@field table? mkdoc.table_opts
 ---
+--- Should link references be folded.
 ---@field fold_refs? boolean
+--- Markers for folding.
 ---@field foldmarkers? string
 markdoc.config = {
 	textwidth = 78,
+
 	block_quotes = {
 		default = {
 			border = "▌"
 		},
 		note = {
-			callout = "▌ Note"
+			callout = " │ Note"
 		}
 	},
+
 	table = {
 		col_minwidth = 10,
 
@@ -1496,7 +1506,8 @@ markdoc.traverse = function (parent, between, width)
 			if can_call and type(val) == "string" then
 				_output = _output .. (add_between(item) == true and between or "") .. val;
 			elseif can_call == false then
-				print(val)
+				print("\27[31mError encountered for " .. item.t);
+				print("\27[31m" .. val);
 			end
 		end
 	end
@@ -1613,7 +1624,7 @@ markdoc.footer = function ()
 			_output = _output .. foldclose;
 		end
 
-		_output = _output .. "\n\n"
+		_output = _output .. "\n"
 	end
 
 	if #markdoc.state.image_refs > 0 then
@@ -1634,12 +1645,12 @@ markdoc.footer = function ()
 			_output = _output .. foldclose;
 		end
 
-		_output = _output .. "\n\n"
+		_output = _output .. "\n"
 	end
 
-	_output = _output .. string.format("vim:ft=help:tw=%d:ts=2:%s", markdoc.config.textwidth or 78, markdoc.config.fold_refs == true and "foldmethod=marker:" or "")
+	_output = _output .. string.format("\nvim:ft=help:tw=%d:ts=2:%s", markdoc.config.textwidth or 78, markdoc.config.fold_refs == true and "foldmethod=marker:" or "")
 
-	return fix_newlines(_output);
+	return _output;
 
 	---|fE
 end
@@ -1657,7 +1668,5 @@ function Writer (document)
 	converted = markdoc.header() .. converted;
 	converted = converted .. markdoc.footer();
 
-	-- print(document.blocks)
-	print(converted);
 	return converted;
 end
