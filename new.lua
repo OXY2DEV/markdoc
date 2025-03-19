@@ -28,10 +28,20 @@ local markdoc = {};
 --- for markdoc.
 ---@class markdoc.config
 ---
+---@field block_quotes table<string, mkdoc.block_quote_opts>
+---
+--- Should link references be folded.
+---@field fold_refs? boolean
+--- Markers for folding.
+---@field foldmarkers? string
+---
 --- Heading text pattern & the corresponding
 --- tag.
 ---@field tags table<string, string | string[]>
----@field block_quotes table<string, mkdoc.block_quote_opts>
+---@field table? mkdoc.table_opts
+---
+--- Width of help file.
+---@field textwidth? number
 ---
 --- Document title.
 ---@field title? string
@@ -42,13 +52,6 @@ local markdoc = {};
 ---@field toc_title? string
 --- TOC entries.
 ---@field toc? table<string, string>
----
----@field table? mkdoc.table_opts
----
---- Should link references be folded.
----@field fold_refs? boolean
---- Markers for folding.
----@field foldmarkers? string
 markdoc.config = {
 	textwidth = 78,
 
@@ -1431,7 +1434,36 @@ markdoc.metadata_to_config = function (metadata)
 	end
 
 	for option, value in pairs(metadata.markdoc) do
-		if option == "tags" then
+		if option == "block_quotes" then
+			---|fS
+
+			local _b = {};
+
+			for key, main_value in pairs(value) do
+				local _o = {};
+
+				for sub_key, sub_value in pairs(main_value) do
+					if key == "default" and (sub_key == "callout" or sub_key == "icon") then
+						goto continue;
+					end
+
+					_o[sub_key] = str(sub_value);
+				    ::continue::
+				end
+
+				_b[key] = _o;
+			end
+
+			markdoc.config.block_quotes = extend(markdoc.config.block_quotes, _b);
+
+			---|fE
+		elseif option == "fold_refs" then
+			markdoc.config.fold_refs = str(value) == "true";
+		elseif option == "foldmarkers" then
+			markdoc.config.foldmarkers = str(value);
+		elseif option == "tags" then
+			---|fS
+
 			--- Structure.
 			--- tags = {
 			---	    ["^.nvim"] = "Hi",
@@ -1454,20 +1486,51 @@ markdoc.metadata_to_config = function (metadata)
 			end
 
 			markdoc.config.tags = tags;
-		elseif option == "block_quotes" then
-			--- Structure.
-			--- block_quotes = {
-			---     note = { border = "|", top = "→ Note" }
-			--- }
-			markdoc.config.block_quotes = value;
+
+			---|fE
 		elseif option == "table" then
-			markdoc.config.table = value;
+			---|fS
+
+			local _t = {};
+
+			for k, v in pairs(value) do
+				if k == "col_minwidth" then
+					_t.col_minwidth = tonumber(str(v));
+				else
+					local _b = {};
+
+					for _, border in ipairs(v) do
+						table.insert(_b, str(border));
+					end
+
+					_t[k] = _b;
+				end
+			end
+
+			markdoc.config.table = extend(markdoc.config.table, _t);
+
+			---|fE
 		elseif option == "textwidth" then
-			markdoc.config.textwidth = value;
+			---@diagnostic disable-next-line
+			markdoc.config.textwidth = tonumber(str(value));
 		elseif option == "title" then
 			markdoc.config.title = str(value);
 		elseif option == "title_tag" then
 			markdoc.config.title_tag = str(value);
+		elseif option == "toc_title" then
+			markdoc.config.toc_title = str(value);
+		elseif option == "toc" then
+			---|fS
+
+			local _toc = {};
+
+			for k, v in pairs(value) do
+				_toc[k] = str[v];
+			end
+
+			markdoc.config.toc = _toc;
+
+			---|fE
 		end
 	end
 
