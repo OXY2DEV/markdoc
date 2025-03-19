@@ -1,6 +1,26 @@
 --- Generic markdown to Vimdoc transformer.
 local markdoc = {};
-local inspect = require("inspect")
+
+---@class mkdoc.block_quote_opts
+---
+---@field border? string
+---@field callout? string
+---@field icon? string
+
+
+---@class mkdoc.table_opts
+---
+---@field col_minwidth? integer
+---@field top? string[]
+---@field header? string[]
+---
+---@field separator? string[]
+---@field header_separator? string[]
+---@field row_separator? string[]
+---
+---@field row? string[]
+---@field bottom? string[]
+
 
 --- Base configuration table
 --- for markdoc.
@@ -9,6 +29,18 @@ local inspect = require("inspect")
 --- Heading text pattern & the corresponding
 --- tag.
 ---@field tags table<string, string | string[]>
+---@field block_quotes table<string, mkdoc.block_quote_opts>
+---
+---@field title? string
+---@field title_tag? string
+---
+---@field toc_title? string
+---@field toc? table<string, string>
+---
+---@field table? mkdoc.table_opts
+---
+---@field fold_refs? boolean
+---@field foldmarkers? string
 markdoc.config = {
 	-- title_tag = "*abc*",
 	-- title = "This is a title to be shown sjsjjs djdjdkd djdjdjd djdjdjdjd djdjkdjd djdjdjd djdjendj jdjdndnd",
@@ -19,7 +51,7 @@ markdoc.config = {
 	-- 	["Some title"] = "that-goes",
 	-- },
 
-	width = 78,
+	textwidth = 78,
 	tags = {
 		[".nvim"] = "Hi"
 	},
@@ -32,7 +64,7 @@ markdoc.config = {
 		}
 	},
 	table = {
-		width = 10,
+		col_minwidth = 10,
 
 		top = { "╭", "─", "╮", "┬" },
 		header = { "│", "│", "│" },
@@ -103,7 +135,7 @@ end
 local function wrap(text, width)
 	---|fS
 
-	width = width or markdoc.config.width;
+	width = width or markdoc.config.textwidth;
 	local _output = "";
 	local line_length = 0;
 
@@ -249,7 +281,7 @@ local function align(alignment, text, width, fill)
 
 	text = text or "";
 	alignment = alignment or "l";
-	width = math.floor(width or markdoc.config.width);
+	width = math.floor(width or markdoc.config.textwidth);
 
 	local LEN = utf8.len(text);
 
@@ -429,17 +461,17 @@ local function align_tags (output)
 
 	output = string.gsub(output, "::MKDocCenter::[^\n]*\n", function (val)
 		local _val = string.gsub(val, "::MKDocCenter::", ""):gsub("\n$", "");
-		return align("c", _val, markdoc.config.width) .. "\n";
+		return align("c", _val, markdoc.config.textwidth) .. "\n";
 	end);
 
 	output = string.gsub(output, "::MKDocLeft::[^\n]*\n", function (val)
 		local _val = string.gsub(val, "::MKDocLeft::", ""):gsub("\n$", "");
-		return align("l", _val, markdoc.config.width) .. "\n";
+		return align("l", _val, markdoc.config.textwidth) .. "\n";
 	end);
 
 	output = string.gsub(output, "::MKDocRight::[^\n]*\n", function (val)
 		local _val = string.gsub(val, "::MKDocRight::", ""):gsub("\n$", "");
-		return align("r", _val, markdoc.config.width) .. "\n";
+		return align("r", _val, markdoc.config.textwidth) .. "\n";
 	end);
 
 	return output;
@@ -594,7 +626,7 @@ markdoc.BulletList = function (node, _, width)
 
 		local _output = "";
 
-		local W = width or markdoc.config.width;
+		local W = width or markdoc.config.textwidth;
 		local indent = markdoc.state.depth * 2;
 
 		local content = markdoc.traverse(candidate):gsub("^\n", "");
@@ -602,10 +634,11 @@ markdoc.BulletList = function (node, _, width)
 		local within_table = false;
 
 		local function update_state (line)
-			local blck = markdoc.config.block_quotes.default.border;
+			---@type string
+			local blck = markdoc.config.block_quotes.default.border or "";
 
-			local top = markdoc.config.table.top;
-			local bot = markdoc.config.table.bottom;
+			local top = markdoc.config.table.top or { "", "", "", "" };
+			local bot = markdoc.config.table.bottom or { "", "", "", "" };
 
 			if should_wrap == true and string.match(line, "%>.*") then
 				should_wrap = false;
@@ -1003,7 +1036,7 @@ markdoc.OrderedList = function (node, _, width)
 		local delim = str(node.listAttributes.delimiter) == "Period" and "." or ")";
 		local _output = "";
 
-		local W = width or markdoc.config.width;
+		local W = width or markdoc.config.textwidth;
 		local indent = markdoc.state.depth * 2;
 
 		local content = markdoc.traverse(candidate);
@@ -1013,10 +1046,10 @@ markdoc.OrderedList = function (node, _, width)
 		local within_table = false;
 
 		local function update_state (line)
-			local blck = markdoc.config.block_quotes.default.border;
+			local blck = markdoc.config.block_quotes.default.border or "";
 
-			local top = markdoc.config.table.top;
-			local bot = markdoc.config.table.bottom;
+			local top = markdoc.config.table.top or { "", "", "", "" };
+			local bot = markdoc.config.table.bottom or { "", "", "", "" };
 
 			if should_wrap == true and string.match(line, "%>.*") then
 				should_wrap = false;
@@ -1235,8 +1268,6 @@ markdoc.Table = function (node)
 	local alignments = {};
 	local widths = {};
 
-	local calculated_width = math.floor((markdoc.config.width - (#node.colspecs + 1)) / #node.colspecs)
-
 	for _, col in ipairs(node.colspecs) do
 		---|fS
 
@@ -1250,11 +1281,8 @@ markdoc.Table = function (node)
 			table.insert(alignments, "c");
 		end
 
-		if type(col[2]) == "number" then
-			table.insert(widths, math.floor((markdoc.config.width - #node.colspecs) * col[2]));
-		else
-			table.insert(widths, math.max(calculated_width, markdoc.config.table.width));
-		end
+		local calculated_width = math.floor((markdoc.config.textwidth - #node.colspecs) * (col[2] or 0));
+		table.insert(widths, math.max(calculated_width, markdoc.config.table.col_minwidth));
 
 		---|fE
 	end
@@ -1436,8 +1464,8 @@ markdoc.metadata_to_config = function (metadata)
 			markdoc.config.block_quotes = value;
 		elseif option == "table" then
 			markdoc.config.table = value;
-		elseif option == "width" then
-			markdoc.config.width = value;
+		elseif option == "textwidth" then
+			markdoc.config.textwidth = value;
 		elseif option == "title" then
 			markdoc.config.title = str(value);
 		elseif option == "title_tag" then
@@ -1455,7 +1483,7 @@ markdoc.traverse = function (parent, between, width)
 	---|fS
 
 	between = between or "";
-	width = width or markdoc.config.width;
+	width = width or markdoc.config.textwidth;
 
 	local _output = "";
 
@@ -1492,17 +1520,21 @@ markdoc.traverse = function (parent, between, width)
 	---|fE
 end
 
+--- Creates header for help files.
+---@return string
 markdoc.header = function ()
+	---|fS
+
 	local _output = "";
 
-	local L = math.ceil((markdoc.config.width - 2) / 2);
-	local R = math.floor((markdoc.config.width - 2) / 2);
+	local L = math.ceil((markdoc.config.textwidth - 2) / 2);
+	local R = math.floor((markdoc.config.textwidth - 2) / 2);
 
 	if markdoc.config.title or markdoc.config.title_tag then
 		---|fS
 
 		local _title = split(wrap(markdoc.config.title or "", L), "\n");
-		local _tag = markdoc.config.title_tag;
+		local _tag = string.format("*%s*", markdoc.config.title_tag);
 
 		if _tag and #_title > 1 then
 			--- Tag & Title.
@@ -1563,8 +1595,66 @@ markdoc.header = function ()
 	end
 
 	return _output;
+
+	---|fE
 end
 
+markdoc.footer = function ()
+	---|fS
+
+	local _output = "\n" .. string.rep("-", markdoc.config.textwidth or 1) .. "\n\n";
+
+	local foldmarkers = markdoc.config.foldmarkers or "{{{,}}}";
+	local foldopen, foldclose = string.match(foldmarkers, "^([^,]-),([^,]-)$")
+
+	if #markdoc.state.link_refs > 0 then
+		_output = _output .. "Link references ~" .. "\n\n";
+
+		if markdoc.config.fold_refs == true then
+			_output = _output .. foldopen .. "Use 'za' to toggle fold" .. "\n";
+		end
+
+		---@type integer
+		local max_len = #tostring(#markdoc.state.link_refs) + 1;
+
+		for l, link in ipairs(markdoc.state.link_refs) do
+			_output = _output .. string.format("%s: %s\n", align("r", tostring(l), max_len), link);
+		end
+
+		if markdoc.config.fold_refs == true then
+			_output = _output .. foldclose;
+		end
+
+		_output = _output .. "\n\n"
+	end
+
+	if #markdoc.state.image_refs > 0 then
+		_output = _output .. "Image references ~" .. "\n\n";
+
+		if markdoc.config.fold_refs == true then
+			_output = _output .. foldopen .. "Use 'za' to toggle fold" .. "\n";
+		end
+
+		---@type integer
+		local max_len = #tostring(#markdoc.state.image_refs) + 1;
+
+		for l, image in ipairs(markdoc.state.image_refs) do
+			_output = _output .. string.format("%s: %s\n", align("r", tostring(l), max_len), image);
+		end
+
+		if markdoc.config.fold_refs == true then
+			_output = _output .. foldclose;
+		end
+
+		_output = _output .. "\n\n"
+	end
+
+	_output = _output .. string.format("vim:ft=help:tw=%d:ts=2:%s", markdoc.config.textwidth or 78, markdoc.config.fold_refs == true and "foldmethod=marker:" or "")
+
+	return fix_newlines(_output);
+
+	---|fE
+end
 
 --- Writer for markdoc.
 ---@param document table
@@ -1577,6 +1667,7 @@ function Writer (document)
 	converted = align_tags(converted);
 
 	converted = markdoc.header() .. converted;
+	converted = converted .. markdoc.footer();
 
 	-- print(document.blocks)
 	print(converted);
