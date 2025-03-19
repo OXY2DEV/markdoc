@@ -42,19 +42,7 @@ local markdoc = {};
 ---@field fold_refs? boolean
 ---@field foldmarkers? string
 markdoc.config = {
-	-- title_tag = "*abc*",
-	-- title = "This is a title to be shown sjsjjs djdjdkd djdjdjd djdjdjdjd djdjkdjd djdjdjd djdjendj jdjdndnd",
-
-	-- toc_title = "hi",
-	-- toc = {
-	-- 	["Some title that is extremely long for me to write in a single line"] = "that-goes-somehwere",
-	-- 	["Some title"] = "that-goes",
-	-- },
-
 	textwidth = 78,
-	tags = {
-		[".nvim"] = "Hi"
-	},
 	block_quotes = {
 		default = {
 			border = "▌"
@@ -752,7 +740,7 @@ markdoc.Header = function (node, _, width)
 
 		local keys = {};
 
-		for k, _ in pairs(markdoc.config.tags) do
+		for k, _ in pairs(markdoc.config.tags or {}) do
 			table.insert(keys, k);
 		end
 
