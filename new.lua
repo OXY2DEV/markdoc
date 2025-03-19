@@ -10,6 +10,15 @@ local inspect = require("inspect")
 --- tag.
 ---@field tags table<string, string | string[]>
 markdoc.config = {
+	-- title_tag = "*abc*",
+	-- title = "This is a title to be shown sjsjjs djdjdkd djdjdjd djdjdjdjd djdjkdjd djdjdjd djdjendj jdjdndnd",
+
+	-- toc_title = "hi",
+	-- toc = {
+	-- 	["Some title that is extremely long for me to write in a single line"] = "that-goes-somehwere",
+	-- 	["Some title"] = "that-goes",
+	-- },
+
 	width = 78,
 	tags = {
 		[".nvim"] = "Hi"
@@ -209,6 +218,11 @@ local function wrap(text, width)
 		end
 	end
 
+	--- Remove spaces that come before
+	--- the end of lines.
+	--- Fixes text alignment issues.
+	_output = _output:gsub(" *\n", "\n")
+
 	return _output;
 
 	---|fE
@@ -230,7 +244,7 @@ local function split(text, pat)
 	---|fE
 end
 
-local function align(alignment, text, width)
+local function align(alignment, text, width, fill)
 	---|fS
 
 	text = text or "";
@@ -244,14 +258,14 @@ local function align(alignment, text, width)
 	end
 
 	if alignment == "l" then
-		return text .. string.rep(" ", width - LEN);
+		return text .. string.rep(fill or " ", width - LEN);
 	elseif alignment == "r" then
-		return string.rep(" ", width - LEN) .. text;
+		return string.rep(fill or " ", width - LEN) .. text;
 	else
 		local L = math.ceil((width - LEN) / 2);
 		local R = math.floor((width - LEN) / 2);
 
-		return string.rep(" ", L) .. text .. string.rep(" ", R);
+		return string.rep(fill or " ", L) .. text .. string.rep(fill or " ", R);
 	end
 
 	---|fE
@@ -1381,12 +1395,6 @@ markdoc.SoftBreak = function ()
 end
 
 
-
-
-
-
-
-
 --- Turns metadata to configuration table.
 markdoc.metadata_to_config = function (metadata)
 	---|fS
@@ -1430,6 +1438,10 @@ markdoc.metadata_to_config = function (metadata)
 			markdoc.config.table = value;
 		elseif option == "width" then
 			markdoc.config.width = value;
+		elseif option == "title" then
+			markdoc.config.title = str(value);
+		elseif option == "title_tag" then
+			markdoc.config.title_tag = str(value);
 		end
 	end
 
@@ -1480,6 +1492,79 @@ markdoc.traverse = function (parent, between, width)
 	---|fE
 end
 
+markdoc.header = function ()
+	local _output = "";
+
+	local L = math.ceil((markdoc.config.width - 2) / 2);
+	local R = math.floor((markdoc.config.width - 2) / 2);
+
+	if markdoc.config.title or markdoc.config.title_tag then
+		---|fS
+
+		local _title = split(wrap(markdoc.config.title or "", L), "\n");
+		local _tag = markdoc.config.title_tag;
+
+		if _tag and #_title > 1 then
+			--- Tag & Title.
+			_output = _output .. _tag .. "\n";
+
+			for _, line in ipairs(_title) do
+				_output = _output .. align("r", line, L + R + 2) .. "\n";
+			end
+		elseif _tag and #_title == 1 then
+			--- Tag & Title that fits in 1 
+			_output = _output .. align("l", _tag, L) .. "  " .. align("r", _title[1], R) .. "\n";
+		elseif #_title > 0 then
+			--- Just a title.
+			for _, line in ipairs(_title) do
+				_output = _output .. align("r", line, L + R + 2) .. "\n";
+			end
+		else
+			--- Just a tag.
+			_output = _output .. _tag .. "\n";
+		end
+
+		_output = _output .. "\n";
+
+		---|fE
+	end
+
+	if markdoc.config.toc then
+		---|fS
+
+		_output = _output .. string.rep("=", L + R + 2) .. "\n" .. align("l", markdoc.config.toc_title or "Table of contents:") .. "\n\n";
+
+		for title, address in pairs(markdoc.config.toc) do
+			local _title = split(wrap(title, L), "\n");
+			local _address = string.format(" |%s|", address);
+
+			if utf8.len(_address) > R then
+				goto continue;
+			end
+
+			if #_title == 1 then
+				_output = _output .. " " .. align("l", _title[1] .. " ", L, "•") .. align("r", _address, R, "•") .. " " .. "\n";
+			else
+				for l, line in ipairs(_title) do
+					if l == #_title then
+						_output = _output .. " " .. align("l", line .. " ", L, "•") .. align("r", _address, R, "•") .. " " .. "\n";
+					else
+						_output = _output .. " " .. align("l", line .. " ", L + R, "•") .. " " .. "\n";
+					end
+				end
+			end
+
+		    ::continue::
+		end
+
+		_output = _output .. "\n";
+
+		---|fE
+	end
+
+	return _output;
+end
+
 
 --- Writer for markdoc.
 ---@param document table
@@ -1490,6 +1575,8 @@ function Writer (document)
 
 	converted = fix_newlines(converted);
 	converted = align_tags(converted);
+
+	converted = markdoc.header() .. converted;
 
 	-- print(document.blocks)
 	print(converted);
