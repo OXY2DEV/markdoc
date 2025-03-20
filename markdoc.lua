@@ -60,7 +60,12 @@ markdoc.config = {
 			border = "▌"
 		},
 		note = {
-			callout = " │ Note"
+			callout = "▌ Note",
+			icon = ""
+		},
+		important = {
+			callout = "▌ Important!",
+			icon = ""
 		}
 	},
 
@@ -138,7 +143,6 @@ local function wrap(text, width)
 
 	width = width or markdoc.config.textwidth;
 	local _output = "";
-	local line_length = 0;
 
 	local tokens = {};
 
@@ -192,6 +196,7 @@ local function wrap(text, width)
 	end
 
 	for _, token in ipairs(tokens) do
+		local line_length = utf8.len(string.match(_output, "\n?([^\n]-)$"));
 		local len = utf8.len(token) or 0;
 
 		if string.match(token, "^%s+") then
@@ -200,7 +205,7 @@ local function wrap(text, width)
 			--- Only add whitespace if we aren't in a new line
 			--- and the output isn't empty.
 			--- Also check if we have enough space
-			if (line_length + len) < width and _output ~= "" and string.match(_output, "[^%s]$") then
+			if (line_length + len) <= width and _output ~= "" and string.match(_output, "[^%s]$") then
 				_output = _output .. token;
 				line_length = line_length + len;
 			end
@@ -224,7 +229,7 @@ local function wrap(text, width)
 		else
 			---|fS
 
-			if len >= width then
+			if len > width then
 				local chars = 0;
 
 				for _, code in utf8.codes(token) do
@@ -236,9 +241,11 @@ local function wrap(text, width)
 					_output = _output .. utf8.char(code);
 					chars = chars + 1;
 				end
-			elseif (line_length + len) >= width then
-				line_length = len;
+
+				line_length = char;
+			elseif (line_length + len) > width then
 				_output = _output .. "\n" .. token;
+				line_length = len;
 			elseif _output == "" then
 				line_length = line_length + len;
 				_output = _output .. token;
@@ -418,8 +425,15 @@ local function update_tag_state (text)
 		else
 			markdoc.state.within_tag = nil;
 		end
-	else
+	elseif string.match(text, "[^/]>$") then
 		local tag = string.match(text, "^<(%w+)");
+		local ignore = { "hr", "br" };
+
+		for _, ig in ipairs(ignore) do
+			if tag == ig then
+				return;
+			end
+		end
 
 		if markdoc.state.within_tag then
 			return;
@@ -823,7 +837,7 @@ markdoc.Header = function (node, _, width)
 
 			for i = 1, math.max(#txt_l, #tag_l) do
 				if txt_l[i] and tag_l[i] then
-					table.insert(lines, align("l", txt_l[i], L) .. "  " .. align("r", tag_l[i], R));
+					table.insert(lines, align("l", txt_l[i], L) .. " " .. align("r", tag_l[i], R));
 				elseif tag_l[i] then
 					table.insert(lines, align("r", tag_l[i], width));
 				elseif txt_l[i] then
@@ -1113,17 +1127,24 @@ end
 ---@param node table
 ---@return string
 markdoc.Para = function (node, _, width)
-	return "\n" .. wrap(markdoc.traverse(node.content), width) .. "\n";
+	local content = markdoc.traverse(node.content);
+	local lines = split(content, "\n");
+	local _output = "";
+
+	for _, line in ipairs(lines) do
+		_output = _output .. wrap(line, width) .. "\n";
+	end
+
+	return "\n" .. _output;
 end
 
 --- Plain text
 ---@param node table
 ---@return string
-markdoc.Plain = function (node, _, width)
+markdoc.Plain = function (node, _)
+	--- NOTE, Plain nodes don't text wrapping!
 	local content = markdoc.traverse(node.content);
-	local wrapped = wrap(content, width);
-
-	return wrapped;
+	return content;
 end
 
 --- HTML block elements.
@@ -1204,6 +1225,10 @@ markdoc.RawInline = function (node)
 
 	if node.format ~= "html" then
 		return "";
+	elseif node.text == "<MKDocTOC/>" then
+		return "::MKDocTOC::";
+	elseif node.text == "<br>" then
+		return "\n\n";
 	elseif string.match(node.text, "^<img") then
 		local src = string.match(node.text, "src%s*=%s*[\"']([^\"']+)[\"']")
 
@@ -1525,7 +1550,7 @@ markdoc.metadata_to_config = function (metadata)
 			local _toc = {};
 
 			for k, v in pairs(value) do
-				_toc[k] = str[v];
+				_toc[k] = str(v);
 			end
 
 			markdoc.config.toc = _toc;
@@ -1584,7 +1609,7 @@ end
 
 --- Creates header for help files.
 ---@return string
-markdoc.header = function ()
+markdoc.header = function (text)
 	---|fS
 
 	local _output = "";
@@ -1607,7 +1632,7 @@ markdoc.header = function ()
 			end
 		elseif _tag and #_title == 1 then
 			--- Tag & Title that fits in 1 
-			_output = _output .. align("l", _tag, L) .. "  " .. align("r", _title[1], R) .. "\n";
+			_output = _output .. align("l", _tag, L) .. " " .. align("r", _title[1], R) .. "\n";
 		elseif #_title > 0 then
 			--- Just a title.
 			for _, line in ipairs(_title) do
@@ -1626,7 +1651,7 @@ markdoc.header = function ()
 	if markdoc.config.toc then
 		---|fS
 
-		_output = _output .. string.rep("=", L + R + 2) .. "\n" .. align("l", markdoc.config.toc_title or "Table of contents:") .. "\n\n";
+		local _toc = string.rep("-", L + R + 2) .. "\n" .. align("l", markdoc.config.toc_title or "Table of contents:") .. "\n\n";
 
 		for title, address in pairs(markdoc.config.toc) do
 			local _title = split(wrap(title, L), "\n");
@@ -1637,13 +1662,13 @@ markdoc.header = function ()
 			end
 
 			if #_title == 1 then
-				_output = _output .. " " .. align("l", _title[1] .. " ", L, "•") .. align("r", _address, R, "•") .. " " .. "\n";
+				_toc = _toc .. " " .. align("l", _title[1] .. " ", L, "•") .. align("r", _address, R, "•") .. " " .. "\n";
 			else
 				for l, line in ipairs(_title) do
 					if l == #_title then
-						_output = _output .. " " .. align("l", line .. " ", L, "•") .. align("r", _address, R, "•") .. " " .. "\n";
+						_toc = _toc .. " " .. align("l", line .. " ", L, "•") .. align("r", _address, R, "•") .. " " .. "\n";
 					else
-						_output = _output .. " " .. align("l", line .. " ", L + R, "•") .. " " .. "\n";
+						_toc = _toc .. " " .. align("l", line .. " ", L + R, "•") .. " " .. "\n";
 					end
 				end
 			end
@@ -1651,12 +1676,17 @@ markdoc.header = function ()
 		    ::continue::
 		end
 
-		_output = _output .. "\n";
+		if string.match(text, "::MKDocTOC::") then
+			_toc = _toc:gsub("\n$", "");
+			text = string.gsub(text, "::MKDocTOC::", _toc, 1);
+		else
+			_output = _output .. _toc .. "\n";
+		end
 
 		---|fE
 	end
 
-	return _output;
+	return _output .. text;
 
 	---|fE
 end
@@ -1728,8 +1758,9 @@ function Writer (document)
 	converted = fix_newlines(converted);
 	converted = align_tags(converted);
 
-	converted = markdoc.header() .. converted;
+	converted = markdoc.header(converted);
 	converted = converted .. markdoc.footer();
 
+	-- print(converted)
 	return converted;
 end
