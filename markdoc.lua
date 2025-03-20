@@ -59,14 +59,27 @@ markdoc.config = {
 		default = {
 			border = "▌"
 		},
-		note = {
-			callout = "▌ Note",
+
+		caution = {
+			callout = "▌ 🛑 Caution",
 			icon = ""
 		},
 		important = {
-			callout = "▌ Important!",
+			callout = "▌ 🧩 Important",
 			icon = ""
-		}
+		},
+		note = {
+			callout = "▌ 📜 Note",
+			icon = ""
+		},
+		tip = {
+			callout = "▌ 💡 Tip",
+			icon = ""
+		},
+		warning = {
+			callout = "▌ 🚨 Warning",
+			icon = ""
+		},
 	},
 
 	table = {
@@ -612,7 +625,9 @@ markdoc.BlockQuote = function (node, _, width)
 			else
 				border = border_drawable(border, line);
 
-				if border == false then
+				if line:match("%>") then
+					_output = _output .. "\n\n" .. "  " .. line;
+				elseif border == false then
 					_output = _output .. "\n" .. "  " .. line;
 				else
 					_output = _output .. "\n" .. (config.border or "") .. " " .. line;
@@ -1370,7 +1385,7 @@ markdoc.Table = function (node)
 		---|fE
 	end
 
-	local _output = "";
+	local _output = "\n";
 
 	local function decorators(src)
 		---|fS
