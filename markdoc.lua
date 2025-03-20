@@ -947,6 +947,11 @@ markdoc.Image = function (node, _, width)
 	return wrap(content .. ref, width);
 end
 
+markdoc.Figure = function (node)
+	local content = markdoc.traverse(node.content, "");
+	return content;
+end
+
 --- Numbered list(1., 1));
 ---@param node table
 ---@param width integer
@@ -1194,11 +1199,11 @@ markdoc.RawBlock = function (node)
 
 		--- Tag text alignment
 		if alignment == "center" then
-			return "::MKDocCenter::"
+			return "\n::MKDocCenter::"
 		elseif alignment == "right" then
-			return "::MKDocRight::"
+			return "\n::MKDocRight::"
 		else
-			return "::MKDocLeft::"
+			return "\n::MKDocLeft::"
 		end
 	end
 
@@ -1778,6 +1783,5 @@ function Writer (document)
 	converted = markdoc.header(converted);
 	converted = converted .. markdoc.footer();
 
-	-- print(converted)
 	return converted;
 end
