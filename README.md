@@ -103,7 +103,7 @@ The configuration options are given below,
 
 Changes block quote configuration.
 
-#### Usage
+#### Example
 
 ```yaml
   block_quotes:
@@ -123,7 +123,7 @@ Changes block quote configuration.
 
 When `true`, link & image references are folded.
 
-#### Usage
+#### Example
 
 ```yaml
   fold_refs: true
@@ -133,7 +133,7 @@ When `true`, link & image references are folded.
 
 Markers used for folding.
 
-#### Usage
+#### Example
 
 ```yaml
   # This is the same as `:set foldmarker`
@@ -144,7 +144,7 @@ Markers used for folding.
 
 Tag configuration for different headings.
 
-#### Usage
+#### Example
 
 ```yaml
     tags:
@@ -157,7 +157,7 @@ Tag configuration for different headings.
 
 Table configuration.
 
-#### Usage
+#### Example
 
 ```yaml
     table:
@@ -178,7 +178,7 @@ Table configuration.
 
 Width of the document.
 
-#### Usage
+#### Example
 
 ```yaml
   # Same as `:set textwidth`
@@ -189,7 +189,7 @@ Width of the document.
 
 Title of the document.
 
-#### Usage
+#### Example
 
 ```yaml
   title: "Markdown 🤝 Vimdoc"
@@ -199,7 +199,7 @@ Title of the document.
 
 Tag for the document title.
 
-#### Usage
+#### Example
 
 ```yaml
   title_tag: "markdoc"
@@ -210,7 +210,7 @@ Tag for the document title.
 Title for the generated table of contents section.
 Defaults to `Table of contents:` when unset.
 
-#### Usage
+#### Example
 
 ```yaml
   toc_title: "Markdoc: TOC"
@@ -224,7 +224,7 @@ Entries for the table of contents.
 > You can add `<MKDocTOC/>` to anywhere in your document and the table of contents will be placed there!
 > However, It will also only replace the 1st one.
 
-#### Usage
+#### Example
 
 ```yaml
   toc:
