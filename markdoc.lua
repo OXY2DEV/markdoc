@@ -72,15 +72,15 @@ markdoc.config = {
 	table = {
 		col_minwidth = 10,
 
-		top = { "╭", "─", "╮", "┬" },
-		header = { "│", "│", "│" },
+		top = { "┏", "━", "┓", "┳" },
+		header = { "┃", "┃", "┃" },
 
-		separator = { "├", "─", "┤", "┼" },
+		separator = { "┡", "━", "┩", "╇" },
 		header_separator = { "├", "─", "┤", "┼" },
 		row_separator = { "├", "─", "┤", "┼" },
 
 		row = { "│", "│", "│" },
-		bottom = { "╰", "─", "╯", "┴" }
+		bottom = { "└", "─", "┘", "┴" }
 	}
 };
 
@@ -1308,7 +1308,9 @@ markdoc.Table = function (node)
 		end
 
 		local calculated_width = math.floor((markdoc.config.textwidth - #node.colspecs) * (col[2] or 0));
-		table.insert(widths, math.max(calculated_width, markdoc.config.table.col_minwidth));
+		local assumed_width = math.floor((markdoc.config.textwidth - #node.colspecs - 1) / #node.colspecs)
+
+		table.insert(widths, math.max(calculated_width, assumed_width, markdoc.config.table.col_minwidth));
 
 		---|fE
 	end
@@ -1322,7 +1324,7 @@ markdoc.Table = function (node)
 		local row_height = 1;
 
 		for c, cell in ipairs(row) do
-			local tmp = markdoc.traverse(cell.content, nil, widths[c] - 2);
+			local tmp = wrap(markdoc.traverse(cell.content, nil, widths[c] - 2), widths[c] - 2);
 			local lines = split(tmp, "\n");
 
 			if #lines > row_height then
