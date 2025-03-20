@@ -6,13 +6,15 @@
 ------------------------------------------------------------------------------
 Table of contents:                                                            
 
- Limitations •••••••••••••••••••••••••••••••••••••••••••••••• |markdoc-limit| 
+ Goals •••••••••••••••••••••••••••••••••••••••••••••••••••••• |markdoc-goals| 
  Configuration ••••••••••••••••••••••••••••••••••••••••••••• |markdoc-config| 
- Usage •••••••••••••••••••••••••••••••••••••••••••••••••••••• |markdoc-usage| 
+ Limitations •••••••••••••••••••••••••••••••••••••••••••••••• |markdoc-limit| 
  Features •••••••••••••••••••••••••••••••••••••••••••••••• |markdoc-features| 
+ Usage •••••••••••••••••••••••••••••••••••••••••••••••••••••• |markdoc-usage| 
 
 ------------------------------------------------------------------------------
-🥅 Goals
+🥅 Goals                                                       *markdoc-goals*
+
 ┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
 ┃ Goal                                ┃ Progress                            ┃
 ┡━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┩
@@ -68,10 +70,19 @@ You can then run it like so,
   pandoc -t path/to/markdoc.lua README.md -o help.txt
 <
 
+▌ 💡 Tip
+▌ You can store metadata in a separate file too if you like. Then you will do
+▌ something like this,
+
+  >sh
+    # Load the metadata file first
+    pandoc metadata.md README.md -t path/to/markdoc.lua -o help.txt
+<
+
 ------------------------------------------------------------------------------
 🪨 Limitations                           *markdoc-limitations* *markdoc-limit*
 
-▌ Important!
+▌ 🧩 Important
 ▌ `markdoc` is best-effort only. It’s not perfect but for most use cases it
 ▌ should be good enough.
 
@@ -98,7 +109,7 @@ the start of the file.
 
 It should look something like this,
 
->md
+>txt
   ---
   markdoc:
     textwidth: 78
@@ -107,12 +118,12 @@ It should look something like this,
   
     tags:
       Features$: [ "markdoc-features", "markdoc-feat" ]
-      Usage$: [ "markdoc-usage" ]
+    Usage$: [ "markdoc-usage" ]
   ---
   Some text.
 <
 
-▌ Note
+▌ 📜 Note
 ▌ All configuration options should be inside `markdoc`.
 
 The configuration options are given below,
@@ -238,7 +249,8 @@ toc ~
 
 Entries for the table of contents.
 
-▌ Note
+▌ 💡 Tip
+
   You can add `<MKDocTOC/>` to anywhere in your document and the table of
   contents will be placed there!
   However, It will also only replace the 1st one.

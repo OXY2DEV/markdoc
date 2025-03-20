@@ -1,20 +1,3 @@
-<!------->
-<!--markdoc:-->
-<!--    textwidth: 78-->
-<!--    title: "Markdown 🤝 Vimdoc"-->
-<!--    title_tag: "markdoc"-->
-<!---->
-<!--    tags:-->
-<!--        Features$: [ "markdoc-features", "markdoc-feat" ]-->
-<!--        Usage$: [ "markdoc-usage" ]-->
-<!--        Limitations$: [ "markdoc-limitations", "markdoc-limit" ]-->
-<!--        Configuration$: [ "markdoc-configuration", "markdoc-config" ]-->
-<!--    toc:-->
-<!--        "Features": "markdoc-features"-->
-<!--        "Usage": "markdoc-usage"-->
-<!--        "Limitations": "markdoc-limit"-->
-<!--        "Configuration": "markdoc-config"-->
-<!------->
 <p align="center">✨ markdoc</p>
 <p align="center">A feature rich markdown to vimdoc converter for pandoc.</p>
 
@@ -57,6 +40,14 @@ You can then run it like so,
 pandoc -t path/to/markdoc.lua README.md -o help.txt
 ```
 
+>[!TIP]
+> You can store metadata in a separate file too if you like. Then you will do something like this,
+> 
+> ```sh
+> # Load the metadata file first
+> pandoc metadata.md README.md -t path/to/markdoc.lua -o help.txt
+> ```
+
 ## 🪨 Limitations
 
 >[!IMPORTANT]
@@ -79,7 +70,7 @@ You can configure `markdoc` for a file by adding a YAML metadata section to the 
 
 It should look something like this,
 
-```md
+```txt
 ---
 markdoc:
   textwidth: 78
@@ -88,7 +79,7 @@ markdoc:
 
   tags:
     Features$: [ "markdoc-features", "markdoc-feat" ]
-    Usage$: [ "markdoc-usage" ]
+  Usage$: [ "markdoc-usage" ]
 ---
 Some text.
 ```
