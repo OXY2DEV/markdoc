@@ -52,6 +52,58 @@ pandoc -t path/to/markdoc.lua README.md -o help.txt
 > pandoc metadata.md README.md -t path/to/markdoc.lua -o help.txt
 > ```
 
+## 💨 Github actions
+
+>[!WARNING]
+> I am not very knowledgable when comes to actions, so feel free to do PRs to fix issues I missed.
+
+```yml
+name: markdoc
+on: [ push ]
+
+permissions:
+  contents: write
+
+jobs:
+  doc:
+    runs-on: ubuntu-latest
+    name: "To vimdoc"
+    steps:
+      - uses: actions/checkout@v2
+      - uses: OXY2DEV/markdoc@v1
+        with:
+          config: '{ "doc/markdoc.txt": [ "mREADME.md", "README.md" ] }'
+      - uses: stefanzweifel/git-auto-commit-action@v4
+        with:
+          commit_message: "doc: Generated help files"
+          branch: ${{ github.head_ref }}
+```
+
+This basically runs `git checkout`, `pandoc mREADME.md README.md -t markdoc.lua -o doc/markdoc.txt`, `git add .` and `git commit -m "doc: Generated help files"`.
+
+### 📌 Configuring workflow
+
+The workflow comes with a single option, `config`. It's a JSON string that actually looks like this,
+
+```json
+{
+	"doc/markdoc.txt": [ "mREADME.md", "README.md" ]
+}
+```
+
+This generates `markdoc.txt` from `mREADME.md`(this file is used for metadata) and `README.md`.
+
+You can add more keys to create more files. For example,
+
+```json
+{
+	"doc/markdoc.txt": [ "mREADME.md", "README.md" ],
+	"doc/markdoc-arch.txt": [ "ARCHITECTURE.md" ]
+}
+```
+
+This will generate another help file named `markdoc-arch` from the `ARCHITECTURE.md` file.
+
 ## 🪨 Limitations
 
 >[!IMPORTANT]
