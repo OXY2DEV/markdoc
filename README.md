@@ -59,7 +59,10 @@ pandoc -t path/to/markdoc.lua README.md -o help.txt
 
 ```yml
 name: markdoc
-on: [ push ]
+on:
+  push:
+    branches:
+      - main
 
 permissions:
   contents: write
@@ -70,11 +73,13 @@ jobs:
     name: "To vimdoc"
     steps:
       - uses: actions/checkout@v2
-      - uses: OXY2DEV/markdoc@v3
+        with:
+          ref: ${{ github.heade_ref }}
+      - uses: OXY2DEV/markdoc@main
         with:
           config: '{ "doc/markdoc.txt": [ "mREADME.md", "README.md" ] }'
           help_dirs: '[ "doc" ]'
-      - uses: stefanzweifel/git-auto-commit-action@v4
+      - uses: stefanzweifel/git-auto-commit-action@v5
         with:
           commit_message: "doc: Generated help files"
           branch: ${{ github.head_ref }}
@@ -88,7 +93,7 @@ The workflow comes with a single option, `config`. It's a JSON string that actua
 
 ```json
 {
-	"doc/markdoc.txt": [ "mREADME.md", "README.md" ]
+  "doc/markdoc.txt": [ "mREADME.md", "README.md" ]
 }
 ```
 
@@ -98,8 +103,8 @@ You can add more keys to create more files. For example,
 
 ```json
 {
-	"doc/markdoc.txt": [ "mREADME.md", "README.md" ],
-	"doc/markdoc-arch.txt": [ "ARCHITECTURE.md" ]
+  "doc/markdoc.txt": [ "mREADME.md", "README.md" ],
+  "doc/markdoc-arch.txt": [ "ARCHITECTURE.md" ]
 }
 ```
 
@@ -137,7 +142,7 @@ You can configure `markdoc` for a file by adding a YAML metadata section to the 
 
 It should look something like this,
 
-```txt
+```text
 ---
 markdoc:
   textwidth: 78
