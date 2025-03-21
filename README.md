@@ -104,6 +104,16 @@ You can add more keys to create more files. For example,
 
 This will generate another help file named `markdoc-arch` from the `ARCHITECTURE.md` file.
 
+---
+
+As of `v3` there is also a `help_dirs` option. This is a JSON list of directories where `helptags` will be run.
+
+```json
+[ "doc" ]
+```
+
+By default it only runs on the `doc/` directory.
+
 ## 🪨 Limitations
 
 >[!IMPORTANT]
@@ -279,4 +289,5 @@ Entries for the table of contents.
 
 ------
 
-Also available in vimdoc, see `doc/markdoc.txt`.
+Vimdoc version, see `doc/markdoc.txt`.
+Markdown version, see `README.md`(metadata is at `mREADME.md`).

@@ -8,6 +8,7 @@ markdoc:
         Goals$: [ "markdoc-goals" ]
         Features$: [ "markdoc-features", "markdoc-feat" ]
         Usage$: [ "markdoc-usage" ]
+        actions$: [ "markdoc-actions" ]
         Limitations$: [ "markdoc-limitations", "markdoc-limit" ]
         Configuration$: [ "markdoc-configuration", "markdoc-config" ]
     toc:
@@ -15,5 +16,6 @@ markdoc:
         "Features": "markdoc-features"
         "Usage": "markdoc-usage"
         "Limitations": "markdoc-limit"
+        "Github actions": "markdoc-actions"
         "Configuration": "markdoc-config"
 ---

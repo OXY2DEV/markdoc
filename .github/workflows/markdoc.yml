@@ -15,9 +15,10 @@ jobs:
       - uses: actions/checkout@v2
         with:
           ref: ${{ github.heade_ref }}
-      - uses: OXY2DEV/markdoc@v2
+      - uses: OXY2DEV/markdoc@main
         with:
           config: '{ "doc/markdoc.txt": [ "mREADME.md", "README.md" ] }'
+          help_dirs: '[ "doc" ]'
       - uses: stefanzweifel/git-auto-commit-action@v5
         with:
           commit_message: "doc: Generated help files"

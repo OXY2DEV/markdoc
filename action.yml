@@ -11,6 +11,11 @@ inputs:
     description: "Help file genration configuration"
     required: false
     default: '{ "doc/help.txt": [ "README.md" ] }'
+  help_dirs:
+    description: "Directories where help files should be generated"
+    required: false
+    default: '[ "doc" ]'
+
 runs:
   using: "docker"
   image: "Dockerfile"
