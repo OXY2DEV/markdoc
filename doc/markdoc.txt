@@ -8,10 +8,10 @@ Demo 1₁Demo 2₂
 ------------------------------------------------------------------------------
 Table of contents:                                                            
 
- Limitations •••••••••••••••••••••••••••••••••••••••••••••••• |markdoc-limit| 
- Goals •••••••••••••••••••••••••••••••••••••••••••••••••••••• |markdoc-goals| 
- Configuration ••••••••••••••••••••••••••••••••••••••••••••• |markdoc-config| 
  Features •••••••••••••••••••••••••••••••••••••••••••••••• |markdoc-features| 
+ Limitations •••••••••••••••••••••••••••••••••••••••••••••••• |markdoc-limit| 
+ Configuration ••••••••••••••••••••••••••••••••••••••••••••• |markdoc-config| 
+ Goals •••••••••••••••••••••••••••••••••••••••••••••••••••••• |markdoc-goals| 
  Usage •••••••••••••••••••••••••••••••••••••••••••••••••••••• |markdoc-usage| 
 
 ------------------------------------------------------------------------------
@@ -101,7 +101,7 @@ You can then run it like so,
       name: "To vimdoc"
       steps:
         - uses: actions/checkout@v2
-        - uses: OXY2DEV/markdoc@v1
+        - uses: OXY2DEV/markdoc@v2
           with:
             config: '{ "doc/markdoc.txt": [ "mREADME.md", "README.md" ] }'
         - uses: stefanzweifel/git-auto-commit-action@v4
