@@ -22,3 +22,4 @@ runs:
 
   args:
     - ${{ inputs.config }}
+    - ${{ inputs.help_dirs }}
