@@ -1,4 +1,6 @@
-# FROM pandoc/core:latest
-ENV config="{ 'help.txt': [ 'README.md' ] }"
+FROM pandoc/core:latest
 
-CMD echo "$config" 
+COPY markdoc.sh /markdoc.sh
+RUN chmod +x /markdoc.sh
+
+ENTRYPOINT [ "/markdoc.sh" ]
