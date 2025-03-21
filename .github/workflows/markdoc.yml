@@ -3,6 +3,7 @@ on: [ push ]
 
 permissions:
   contents: write
+  pull_requests: write
 
 jobs:
   doc:
@@ -10,10 +11,12 @@ jobs:
     name: "To vimdoc"
     steps:
       - uses: actions/checkout@v2
-      - uses: OXY2DEV/actions-markdoc@v1
+        with:
+          ref: ${{ github.heade_ref }}
+      - uses: OXY2DEV/actions-markdoc@main
         with:
           config: '{ "doc/markdoc.txt": [ "mREADME.md", "README.md" ] }'
-      - uses: stefanzweifel/git-auto-commit-action@v4
+      - uses: stefanzweifel/git-auto-commit-action@v5
         with:
           commit_message: "doc: Generated help files"
           branch: ${{ github.head_ref }}
