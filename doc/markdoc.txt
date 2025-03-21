@@ -8,12 +8,12 @@ Demo 1₁Demo 2₂
 ------------------------------------------------------------------------------
 Table of contents:                                                            
 
- Goals •••••••••••••••••••••••••••••••••••••••••••••••••••••• |markdoc-goals| 
- Github actions ••••••••••••••••••••••••••••••••••••••••••• |markdoc-actions| 
  Configuration ••••••••••••••••••••••••••••••••••••••••••••• |markdoc-config| 
+ Goals •••••••••••••••••••••••••••••••••••••••••••••••••••••• |markdoc-goals| 
+ Limitations •••••••••••••••••••••••••••••••••••••••••••••••• |markdoc-limit| 
  Features •••••••••••••••••••••••••••••••••••••••••••••••• |markdoc-features| 
  Usage •••••••••••••••••••••••••••••••••••••••••••••••••••••• |markdoc-usage| 
- Limitations •••••••••••••••••••••••••••••••••••••••••••••••• |markdoc-limit| 
+ Github actions ••••••••••••••••••••••••••••••••••••••••••• |markdoc-actions| 
 
 ------------------------------------------------------------------------------
 🥅 Goals                                                       *markdoc-goals*
@@ -91,7 +91,10 @@ You can then run it like so,
 
 >yml
   name: markdoc
-  on: [ push ]
+  on:
+    push:
+      branches:
+        - main
   
   permissions:
     contents: write
@@ -102,11 +105,13 @@ You can then run it like so,
       name: "To vimdoc"
       steps:
         - uses: actions/checkout@v2
-        - uses: OXY2DEV/markdoc@v3
+          with:
+            ref: ${{ github.heade_ref }}
+        - uses: OXY2DEV/markdoc@main
           with:
             config: '{ "doc/markdoc.txt": [ "mREADME.md", "README.md" ] }'
             help_dirs: '[ "doc" ]'
-        - uses: stefanzweifel/git-auto-commit-action@v4
+        - uses: stefanzweifel/git-auto-commit-action@v5
           with:
             commit_message: "doc: Generated help files"
             branch: ${{ github.head_ref }}
@@ -122,7 +127,7 @@ actually looks like this,
 
 >json
   {
-      "doc/markdoc.txt": [ "mREADME.md", "README.md" ]
+    "doc/markdoc.txt": [ "mREADME.md", "README.md" ]
   }
 <
 
@@ -133,8 +138,8 @@ You can add more keys to create more files. For example,
 
 >json
   {
-      "doc/markdoc.txt": [ "mREADME.md", "README.md" ],
-      "doc/markdoc-arch.txt": [ "ARCHITECTURE.md" ]
+    "doc/markdoc.txt": [ "mREADME.md", "README.md" ],
+    "doc/markdoc-arch.txt": [ "ARCHITECTURE.md" ]
   }
 <
 
@@ -186,7 +191,7 @@ the start of the file.
 
 It should look something like this,
 
->txt
+>text
   ---
   markdoc:
     textwidth: 78
