@@ -1,6 +1,10 @@
 name: "actions-markdoc"
 description: "A simple workflow to run `markdoc` on given file(s)."
 author: "OXY2DEV"
+
+icon: align-center
+color: gray-black
+
 inputs:
   config:
     description: "Help file genration configuration"
