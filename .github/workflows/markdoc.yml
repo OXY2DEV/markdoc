@@ -1,0 +1,14 @@
+name: markdoc
+on: [ push ]
+
+permissions:
+  contents: write
+
+jobs:
+  doc:
+    runs-on: ubuntu-latest
+    name: "To vimdoc"
+    steps:
+      - uses: actions/checkout@v2
+      - uses: ./action.yml
+      # - uses: OXY2DEV/markdoc@head

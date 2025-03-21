@@ -1,0 +1,10 @@
+name: "markdoc"
+description: "A simple workflow to run `markdoc` on given file(s)."
+author: "OXY2DEV"
+inputs:
+  config:
+    description: "Command arguments for `pandoc`"
+    required: false
+    default: '{ "help.txt": [ "README.md" ] }'
+runs: |
+  docker run -e CONFIG=${{ inputs.config }} Dockerfile
