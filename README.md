@@ -55,7 +55,7 @@ pandoc -t path/to/markdoc.lua README.md -o help.txt
 ## 💨 Github actions
 
 >[!WARNING]
-> I am not very knowledgable when comes to actions, so feel free to do PRs to fix issues I missed.
+> I am not very knowledgable when it comes to GitHub actions, so feel free to do PR(s) to fix issues I missed.
 
 ```yml
 name: markdoc
