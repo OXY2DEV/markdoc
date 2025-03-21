@@ -5,7 +5,7 @@ inputs:
   config:
     description: "Command arguments for `pandoc`"
     required: false
-    default: '{ "help.txt": [ "README.md" ] }'
+    default: '{ "doc/help.txt": [ "README.md" ] }'
 runs:
   using: "docker"
   image: "Dockerfile"

@@ -11,6 +11,8 @@ jobs:
     steps:
       - uses: actions/checkout@v2
       - uses: OXY2DEV/markdoc@main
+        with:
+          default: '{ "doc/help.txt": [ "mREADME.md", "README.md" ] }'
       - uses: stefanzweifel/git-auto-commit-action@v4
         with:
           commit_message: "doc: Generated help files"
