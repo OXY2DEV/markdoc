@@ -1,5 +1,17 @@
 # Changelog
 
+## [2.0.0](https://github.com/OXY2DEV/markdoc/compare/v1.0.0...v2.0.0) (2025-03-21)
+
+
+### ⚠ BREAKING CHANGES
+
+* **ci:** Changed action name for publishing reasons
+
+### Bug Fixes
+
+* **ci:** Changed action name for publishing reasons ([04628b4](https://github.com/OXY2DEV/markdoc/commit/04628b4950776b6e197733d746d325141d4f7ef8))
+* **ci:** Fixed workflow branch ([896e003](https://github.com/OXY2DEV/markdoc/commit/896e00310b18b13482fbdfc79fe844c20869a4fd))
+
 ## 1.0.0 (2025-03-21)
 
 
