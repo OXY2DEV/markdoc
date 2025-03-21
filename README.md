@@ -70,9 +70,10 @@ jobs:
     name: "To vimdoc"
     steps:
       - uses: actions/checkout@v2
-      - uses: OXY2DEV/markdoc@v2
+      - uses: OXY2DEV/markdoc@v3
         with:
           config: '{ "doc/markdoc.txt": [ "mREADME.md", "README.md" ] }'
+          help_dirs: '[ "doc" ]'
       - uses: stefanzweifel/git-auto-commit-action@v4
         with:
           commit_message: "doc: Generated help files"
