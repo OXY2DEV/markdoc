@@ -1,9 +1,11 @@
 name: markdoc
-on: [ push ]
+on:
+  push:
+    branches:
+      - main
 
 permissions:
   contents: write
-  pull_requests: write
 
 jobs:
   doc:
