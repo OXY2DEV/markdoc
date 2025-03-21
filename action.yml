@@ -7,7 +7,9 @@ inputs:
     required: false
     default: '{ "help.txt": [ "README.md" ] }'
 runs:
-  using: docker
+  using: "docker"
+  image: "Dockerfile"
 
-run: |
-  docker run -e Dockerfile
+  args:
+    - --CONFIG
+    - ${{ inputs.config }}
