@@ -6,5 +6,8 @@ inputs:
     description: "Command arguments for `pandoc`"
     required: false
     default: '{ "help.txt": [ "README.md" ] }'
+runs:
+  using: docker
+
 run: |
   docker run -e Dockerfile
