@@ -11,5 +11,5 @@ runs:
   image: "Dockerfile"
 
   args:
-    - --CONFIG
+    - --config
     - ${{ inputs.config }}

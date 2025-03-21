@@ -1,4 +1,4 @@
 FROM pandoc/core:latest
-ENV CONFIG="{ 'help.txt': [ 'README.md' ] }"
+ENV config="{ 'help.txt': [ 'README.md' ] }"
 
-CMD echo "$CONFIG" 
+CMD echo "$config" 
