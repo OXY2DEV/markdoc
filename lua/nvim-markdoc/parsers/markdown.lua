@@ -1,21 +1,30 @@
 local markdown = {};
 local inline = require("nvim-markdoc.parsers.markdown_inline");
+local yaml = require("nvim-markdoc.parsers.yaml");
 
 local utils = require("nvim-markdoc.utils");
 
 markdown.document = function (buffer, node)
 	local content = {};
-	local range = { node:range() };
 
 	for child_node in node:iter_children() do
 		local _content = markdown.handle(buffer, child_node);
-		-- local _range = { child_node:range() };
-
-		-- print(child_node:type())
 		content = vim.list_extend(content, _content);
 	end
 
 	return content;
+end
+
+markdown.minus_metadata = function (buffer, node)
+	local range = { node:range() };
+	range[1] = range[1] + 1;
+	range[3] = range[3] - 1;
+
+	local language_tree = _G.__markdoc_state.language_tree;
+	local injected_tree = language_tree:tree_for_range(range, { ignore_injections = false });
+
+	yaml.parse(buffer, injected_tree);
+	return {};
 end
 
 markdown.section = markdown.document;
