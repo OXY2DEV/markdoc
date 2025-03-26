@@ -1674,8 +1674,16 @@ markdoc.header = function (text)
 		---|fS
 
 		local _toc = string.rep("-", L + R + 2) .. "\n" .. align("l", markdoc.config.toc_title or "Table of contents:") .. "\n\n";
+		local titles = {};
 
-		for title, address in pairs(markdoc.config.toc) do
+		for title, _ in pairs(markdoc.config.toc) do
+			table.insert(titles, title);
+		end
+
+		table.sort(titles);
+
+		for _, title in ipairs(titles) do
+			local address = markdoc.config.toc[title]
 			local _title = split(wrap(title, L), "\n");
 			local _address = string.format(" |%s|", address);
 
