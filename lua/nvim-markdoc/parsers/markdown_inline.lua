@@ -5,7 +5,9 @@ inline.inline = function (buffer, node)
 	local _main = vim.split(vim.treesitter.get_node_text(node, buffer), "\n", {});
 	local range = { node:range() };
 
-	for child_node in node:iter_children() do
+	for c = node:child_count() - 1, 0, -1 do
+		local child_node = node:child(c);
+
 		local crange = { child_node:range() };
 		local ccontent = inline.handle(buffer, child_node);
 
