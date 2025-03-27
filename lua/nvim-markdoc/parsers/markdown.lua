@@ -225,6 +225,8 @@ markdown.atx_h2_marker = function ()
 end
 
 markdown.block_quote = function (buffer, node)
+	---|fS
+
 	local config = spec.block_quote_config(vim.treesitter.get_node_text(node, buffer));
 	local width = get_usable_width(node) - 2 - vim.fn.strdisplaywidth(config.border or "");
 
@@ -240,13 +242,14 @@ markdown.block_quote = function (buffer, node)
 		local ccontent = markdown.handle(buffer, child_node);
 
 		_content = utils.replace(_content, range, ccontent, crange);
+		vim.print(ccontent)
 	end
 
 	local output = {};
 
 	for l, line in ipairs(_content) do
 		local _line = line or "";
-		_line = string.gsub(_line, "^[%s>]*", "");
+		_line = string.gsub(_line, "^> ?", "");
 
 		if l == 1 then
 			if config.title then
@@ -270,6 +273,29 @@ markdown.block_quote = function (buffer, node)
 	end
 
 	return output;
+
+	---|fE
+end
+
+markdown.indented_code_block = function (buffer, node)
+	local text = vim.treesitter.get_node_text(node, buffer);
+	local _content = vim.split(text, "\n");
+
+	local ft = vim.filetype.match({ contents = _content });
+	local tabstop = vim.bo[buffer].tabstop or 4;
+
+	for l, line in ipairs(_content) do
+		local _line = string.gsub(line, "^\t+", function (val)
+			return string.rep(" ", vim.fn.strchars(val) * tabstop);
+		end);
+
+		_content[l] = _line;
+	end
+
+	table.insert(_content, 1, string.format(">%s", ft or ""));
+	table.insert(_content, "<");
+
+	return _content;
 end
 
 markdown.inline = function (buffer, node)
