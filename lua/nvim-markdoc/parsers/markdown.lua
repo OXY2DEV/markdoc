@@ -193,6 +193,7 @@ markdown.atx_heading = function (buffer, node)
 	local marker = node:child(0);
 
 	if vim.list_contains({ "atx_h1_marker", "atx_h2_marker" }, marker:type()) then
+		return {};
 		-- return markdown.handle(buffer, node);
 	elseif marker:type() == "atx_h3_marker" and node:child_count() == 2 then
 		local _content = markdown.inline(buffer, node:child(1));
@@ -232,7 +233,7 @@ markdown.block_quote = function (buffer, node)
 	---|fS
 
 	local config = spec.block_quote_config(vim.treesitter.get_node_text(node, buffer));
-	local width = get_usable_width(node) - 2 - vim.fn.strdisplaywidth(config.border or "");
+	local width = get_usable_width(node) - 1 - vim.fn.strdisplaywidth(config.border or "");
 
 	if width <= 1 then
 		return {};
@@ -267,8 +268,6 @@ markdown.block_quote = function (buffer, node)
 				_line = (config.border or " ") .. " " .. (config.icon or "") .. " " .. config.title;
 			elseif config.callout then
 				_line = config.callout or "";
-			else
-				_line = (config.border or " ") .. " " .. _line;
 			end
 		end
 
@@ -279,8 +278,8 @@ markdown.block_quote = function (buffer, node)
 			--- NOTE, Closing < can't have spaces before it!
 			within_code = false;
 			table.insert(output, _line);
-		elseif within_code then
-			table.insert(output, "  " .. _line);
+		elseif within_code or string.match(_line, "^%-+$") then
+			table.insert(output, _line);
 		else
 			local _wrapped = wrap(_line, width - vim.fn.strdisplaywidth(config.border or ""));
 
@@ -297,6 +296,10 @@ markdown.block_quote = function (buffer, node)
 	return output;
 
 	---|fE
+end
+
+markdown.block_quote_marker = function (buffer, node)
+	return { vim.treesitter.get_node_text(node, buffer, { ignore_injections = false }) }
 end
 
 markdown.indented_code_block = function (buffer, node)
@@ -319,6 +322,28 @@ markdown.indented_code_block = function (buffer, node)
 	table.insert(_content, "<");
 
 	return _content;
+end
+
+markdown.thematic_break = function (buffer, node)
+	---|fS
+
+	local text = vim.treesitter.get_node_text(node, buffer);
+	text = text:gsub("%-+", string.rep("-", spec.config.textwidth));
+
+	local _content = vim.split(text, "\n");
+	local range = { node:range() };
+
+	for child_node in node:iter_children() do
+		vim.print(child_node:type())
+		local crange = { child_node:range() };
+		local ccontent = markdown.handle(buffer, child_node);
+
+		_content = utils.replace(_content, range, ccontent, crange);
+	end
+
+	return _content;
+
+	---|fE
 end
 
 markdown.inline = function (buffer, node)
