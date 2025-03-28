@@ -138,6 +138,16 @@ local function wrap(text, width)
 	---|fE
 end
 
+local function add_space(content, node)
+	local amount = utils.spaces_above(node);
+
+	for i = 1, amount do
+		table.insert(content, 1, "");
+	end
+
+	return content;
+end
+
 local function get_usable_width(node)
 	local width = spec.config.textwidth or 78;
 	local parent = node:parent();
@@ -160,14 +170,6 @@ markdown.document = function (buffer, node)
 		local _content = markdown.handle(buffer, child_node);
 		content = vim.list_extend(content, _content);
 	end
-	--
-	-- local _output = {};
-	--
-	-- for _, line in ipairs(content) do
-	-- 	local wrapped = vim.split(wrap(line, 78), "\n");
-	-- 	vim.print(wrapped)
-	-- 	_output = vim.list_extend(_output, wrapped);
-	-- end
 
 	return content;
 end
@@ -194,6 +196,7 @@ markdown.atx_heading = function (buffer, node)
 		-- return markdown.handle(buffer, node);
 	elseif marker:type() == "atx_h3_marker" and node:child_count() == 2 then
 		local _content = markdown.inline(buffer, node:child(1));
+		_content = add_space(_content, node);
 
 		for l, line in ipairs(_content) do
 			line = string.gsub(line, "[^%w.()%s]", "");
@@ -205,6 +208,7 @@ markdown.atx_heading = function (buffer, node)
 		return _content;
 	elseif node:child_count() == 2 then
 		local _content = markdown.inline(buffer, node:child(1));
+		_content = add_space(_content, node);
 
 		for l, line in ipairs(_content) do
 			_content[l] = line .. " ~";
@@ -238,14 +242,21 @@ markdown.block_quote = function (buffer, node)
 	local range = { node:range() };
 
 	for child_node in node:iter_children() do
+		if child_node:type() == "block_continuation" then
+			--- BUG, Block continuations are kinda
+			--- bugged at the moment.
+			goto continue;
+		end
+
 		local crange = { child_node:range() };
 		local ccontent = markdown.handle(buffer, child_node);
 
 		_content = utils.replace(_content, range, ccontent, crange);
-		vim.print(ccontent)
+	    ::continue::
 	end
 
 	local output = {};
+	local within_code = false;
 
 	for l, line in ipairs(_content) do
 		local _line = line or "";
@@ -261,13 +272,24 @@ markdown.block_quote = function (buffer, node)
 			end
 		end
 
-		local _wrapped = wrap(_line, width - vim.fn.strdisplaywidth(config.border or ""));
+		if within_code == false and string.match(_line, "^>") then
+			within_code = true;
+			table.insert(output, "  " .. _line);
+		elseif within_code == true and string.match(_line, "^<") then
+			--- NOTE, Closing < can't have spaces before it!
+			within_code = false;
+			table.insert(output, _line);
+		elseif within_code then
+			table.insert(output, "  " .. _line);
+		else
+			local _wrapped = wrap(_line, width - vim.fn.strdisplaywidth(config.border or ""));
 
-		for _, wline in ipairs(vim.split(_wrapped, "\n")) do
-			if l == 1 then
-				table.insert(output, wline);
-			else
-				table.insert(output, (config.border or " ") .. " " .. wline);
+			for _, wline in ipairs(vim.split(_wrapped, "\n")) do
+				if l == 1 then
+					table.insert(output, wline);
+				else
+					table.insert(output, (config.border or " ") .. " " .. wline);
+				end
 			end
 		end
 	end
@@ -280,6 +302,7 @@ end
 markdown.indented_code_block = function (buffer, node)
 	local text = vim.treesitter.get_node_text(node, buffer);
 	local _content = vim.split(text, "\n");
+	_content = add_space(_content, node);
 
 	local ft = vim.filetype.match({ contents = _content });
 	local tabstop = vim.bo[buffer].tabstop or 4;

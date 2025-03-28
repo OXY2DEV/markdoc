@@ -45,4 +45,15 @@ utils.replace = function (root, root_range, child, child_range)
 	return _output;
 end
 
+utils.spaces_above = function (node)
+	if not node:prev_sibling() then
+		return 0;
+	end
+
+	local row_start = node:range();
+	local _, _, b_row_end = node:prev_sibling():range();
+
+	return row_start - b_row_end;
+end
+
 return utils;
