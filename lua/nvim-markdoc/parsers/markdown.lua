@@ -141,8 +141,8 @@ end
 local function add_space(content, node)
 	local amount = utils.spaces_above(node);
 
-	for i = 1, amount do
-		table.insert(content, 1, "");
+	for _ = 1, amount do
+		table.insert(content, 1, " ");
 	end
 
 	return content;
@@ -242,55 +242,75 @@ markdown.block_quote = function (buffer, node)
 	local _content = vim.split(vim.treesitter.get_node_text(node, buffer), "\n", {});
 	local range = { node:range() };
 
-	for child_node in node:iter_children() do
-		if child_node:type() == "block_continuation" then
-			--- BUG, Block continuations are kinda
-			--- bugged at the moment.
-			goto continue;
-		end
+	vim.g.__markdoc_block_quote = config;
+
+	for c = node:child_count() - 1, 0, -1 do
+		local child_node = node:child(c);
 
 		local crange = { child_node:range() };
 		local ccontent = markdown.handle(buffer, child_node);
 
 		_content = utils.replace(_content, range, ccontent, crange);
-	    ::continue::
+	end
+
+	vim.g.__markdoc_block_quote = spec.config.block_quotes;
+
+	if _content[#_content] == "" then
+		table.remove(_content);
 	end
 
 	local output = {};
 	local within_code = false;
 
 	for l, line in ipairs(_content) do
-		local _line = line or "";
-		_line = string.gsub(_line, "^> ?", "");
+		if l == #_content and line == "" then
+			break;
+		end
+
+		local extra, text = "", "";
+
+		if range[2] ~= 0 then
+			if l ~= 1 then
+				extra, text = string.sub(line, 0, range[2]), string.sub(line, range[2] + 1, #line);
+			else
+				extra, text = "", line;
+			end
+		elseif string.match(line, "^%s") then
+			extra, text = string.match(line, "^(%s*)(.*)$");
+		else
+			extra, text = "", line;
+		end
+
+		text = string.gsub(text, "^> ?", "");
 
 		if l == 1 then
 			if config.title then
-				_line = (config.border or " ") .. " " .. (config.icon or "") .. " " .. config.title;
+				table.insert(output, extra .. (config.border or " ") .. " " .. (config.icon or "") .. " " .. config.title);
+				goto continue;
 			elseif config.callout then
-				_line = config.callout or "";
+				table.insert(output, extra .. (config.callout or ""));
+				goto continue;
 			end
 		end
 
-		if within_code == false and string.match(_line, "^>") then
+		if within_code == false and string.match(text, "^>") then
 			within_code = true;
-			table.insert(output, "  " .. _line);
-		elseif within_code == true and string.match(_line, "^<") then
+			table.insert(output, text);
+		elseif within_code == true and string.match(text, "^<") then
 			--- NOTE, Closing < can't have spaces before it!
 			within_code = false;
-			table.insert(output, _line);
-		elseif within_code or string.match(_line, "^%-+$") then
-			table.insert(output, _line);
+			table.insert(output, text);
+		elseif within_code or string.match(line, "^%-+$") then
+			table.insert(output, text);
 		else
-			local _wrapped = wrap(_line, width - vim.fn.strdisplaywidth(config.border or ""));
+			local _wrapped = wrap(text, width - vim.fn.strdisplaywidth(config.border or ""));
 
 			for _, wline in ipairs(vim.split(_wrapped, "\n")) do
-				if l == 1 then
-					table.insert(output, wline);
-				else
-					table.insert(output, (config.border or " ") .. " " .. wline);
-				end
+				table.insert(output, extra .. (config.border or " ") .. " " .. wline);
 			end
 		end
+
+		::continue::
 	end
 
 	return output;
@@ -299,8 +319,10 @@ markdown.block_quote = function (buffer, node)
 end
 
 markdown.block_quote_marker = function (buffer, node)
-	return { vim.treesitter.get_node_text(node, buffer, { ignore_injections = false }) }
+	return { vim.treesitter.get_node_text(node, buffer) }
 end
+
+markdown.block_continuation = markdown.block_quote_marker;
 
 markdown.indented_code_block = function (buffer, node)
 	local text = vim.treesitter.get_node_text(node, buffer);
@@ -333,8 +355,9 @@ markdown.thematic_break = function (buffer, node)
 	local _content = vim.split(text, "\n");
 	local range = { node:range() };
 
-	for child_node in node:iter_children() do
-		vim.print(child_node:type())
+	for c = node:child_count() - 1, 0, -1 do
+		local child_node = node:child(c);
+
 		local crange = { child_node:range() };
 		local ccontent = markdown.handle(buffer, child_node);
 
@@ -345,6 +368,77 @@ markdown.thematic_break = function (buffer, node)
 
 	---|fE
 end
+
+markdown.list = function (buffer, node)
+	local text = vim.treesitter.get_node_text(node, buffer);
+	local _content = vim.split(text, "\n");
+	_content = add_space(_content, node);
+
+	local range = { node:range() };
+
+	for c = node:child_count() - 1, 0, -1 do
+		local child_node = node:child(c);
+
+		local crange = { child_node:range() };
+		local ccontent = markdown.handle(buffer, child_node);
+
+		_content = utils.replace(_content, range, ccontent, crange);
+	end
+
+	return _content;
+end
+
+markdown.list_item = function (buffer, node)
+	local width = get_usable_width(node) - 2;
+
+	if width <= 1 then
+		return {};
+	end
+
+	local text = vim.treesitter.get_node_text(node, buffer);
+	local _content = vim.split(text, "\n");
+	_content = add_space(_content, node);
+
+	local marker;
+	local range = { node:range() };
+
+	for c = node:child_count() - 1, 0, -1 do
+		local child_node = node:child(c);
+
+		local crange = { child_node:range() };
+		local ccontent = markdown.handle(buffer, child_node);
+
+		if string.match(child_node:type(), "^list_marker_") then
+			marker = ccontent[1];
+		end
+
+		_content = utils.replace(_content, range, ccontent, crange);
+	end
+
+	local output = {};
+
+	for _, line in ipairs(_content) do
+		local wrapped = wrap(line, width - vim.fn.strdisplaywidth(marker));
+
+		for w, wline in ipairs(vim.split(wrapped, "\n")) do
+			if w ~= 1 then
+				table.insert(output, string.rep(" ", vim.fn.strchars(marker)) .. wline);
+			else
+				table.insert(output, wline);
+			end
+		end
+	end
+
+	return output;
+end
+
+markdown.list_marker_minus = function ()
+	return { "• " };
+end
+
+markdown.list_marker_plus = markdown.list_marker_minus;
+
+markdown.list_marker_star = markdown.list_marker_minus;
 
 markdown.inline = function (buffer, node)
 	local language_tree = _G.__markdoc_state.language_tree;
