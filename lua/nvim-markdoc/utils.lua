@@ -13,6 +13,10 @@ utils.replace = function (root, root_range, child, child_range)
 		utils.scratch_buffer = vim.api.nvim_create_buf(false, true);
 	end
 
+	if root_range[2] ~= 0 then
+		_output[1] = string.rep(" ", root_range[2]) .. _output[1];
+	end
+
 	local _, err = pcall(function ()
 		vim.api.nvim_buf_set_lines(utils.scratch_buffer, 0, -1, false, root);
 		local normalized_range = {
@@ -20,27 +24,18 @@ utils.replace = function (root, root_range, child, child_range)
 		};
 
 		normalized_range[1] = child_range[1] - root_range[1];
-		normalized_range[3] = child_range[3] - root_range[1];
+		normalized_range[3] = child_range[3]- root_range[1];
 
-		if root_range[2] ~= 0 and normalized_range[1] == 0 then
-			--- Child node doesn't start on column 0 and exists
-			--- on the first line.
-			normalized_range[2] = child_range[2] - root_range[2];
-		else
-			normalized_range[2] = child_range[2];
-		end
-
-		if root_range[4] ~= 0 and normalized_range[3] == 0 then
-			--- Child node doesn't start on column 0 and exists
-			--- on the first line.
-			normalized_range[4] = child_range[4] - root_range[2];
-		else
-			normalized_range[4] = child_range[4];
-		end
+		normalized_range[2] = child_range[2];
+		normalized_range[4] = child_range[4];
 
 		vim.api.nvim_buf_set_text(utils.scratch_buffer, normalized_range[1], normalized_range[2], normalized_range[3], normalized_range[4], child);
 		_output = vim.api.nvim_buf_get_lines(utils.scratch_buffer, 0, -1, false);
 	end);
+
+	if root_range[2] ~= 0 then
+		_output[1] = string.sub(_output[1], root_range[2] + 1, #_output[1]);
+	end
 
 	return _output;
 end
