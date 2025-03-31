@@ -5,6 +5,7 @@ spec.default = {
 	tags = {},
 
 	textwidth = 78,
+	tabstop = 4,
 
 	block_quotes = {
 		default = {

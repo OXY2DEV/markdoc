@@ -73,7 +73,7 @@ local function wrap(text, width)
 			--- Only add whitespace if we aren't in a new line
 			--- and the output isn't empty.
 			--- Also check if we have enough space
-			if (line_length + len) <= width and _output ~= "" and string.match(_output, "[^%s]$") then
+			if (line_length + len) <= width then
 				_output = _output .. token;
 				line_length = line_length + len;
 			end
@@ -155,6 +155,8 @@ local function get_usable_width(node)
 	while parent do
 		if parent:type() == "block_quote" then
 			width = width - 2;
+		elseif parent:type() == "list_item" then
+			width = width - (spec.config.tabstop or 4);
 		end
 
 		parent = parent:parent();
@@ -271,7 +273,8 @@ markdown.block_quote = function (buffer, node)
 
 		if range[2] ~= 0 then
 			if l ~= 1 then
-				extra, text = string.sub(line, 0, range[2]), string.sub(line, range[2] + 1, #line);
+				extra, text = string.sub(line, 0, range[2]), string.sub(line, range[2], #line);
+				text = vim.fn.strcharpart(text, 1, vim.fn.strchars(text));
 			else
 				extra, text = "", line;
 			end
@@ -390,13 +393,14 @@ end
 
 markdown.list_item = function (buffer, node)
 	local width = get_usable_width(node) - 2;
+	local tabstop = spec.config.tabstop or 4;
 
 	if width <= 1 then
 		return {};
 	end
 
-	local text = vim.treesitter.get_node_text(node, buffer);
-	local _content = vim.split(text, "\n");
+	local _text = vim.treesitter.get_node_text(node, buffer);
+	local _content = vim.split(_text, "\n");
 	_content = add_space(_content, node);
 
 	local marker;
@@ -415,30 +419,54 @@ markdown.list_item = function (buffer, node)
 		_content = utils.replace(_content, range, ccontent, crange);
 	end
 
+	table.remove(_content);
 	local output = {};
 
-	for _, line in ipairs(_content) do
-		local wrapped = wrap(line, width - vim.fn.strdisplaywidth(marker));
+	for l, line in ipairs(_content) do
+		local extra, text = "", "";
+
+		if range[2] ~= 0 then
+			if l ~= 1 then
+				extra, text = string.sub(line, 0, range[2]), string.sub(line, range[2], #line);
+				text = vim.fn.strcharpart(text, 1, vim.fn.strchars(text));
+			else
+				extra, text = "", line;
+			end
+		elseif string.match(line, "^%s") then
+			extra, text = string.match(line, "^(%s*)(.*)$");
+		else
+			extra, text = "", line;
+		end
+
+		local _marker = "";
+
+		if l == 1 then
+			if string.match(text, "^%s*[%-%+%+]%s?") then
+				_marker = string.match(text, "^%s*[%-%+%+]%s?");
+				text = string.gsub(text, "^%s*[%-%+%+]%s?", "");
+			else
+				_marker = string.match(text, "^%s*%d+[%.%)]%s?");
+				text = string.gsub(text, "^%s*%d+[%.%)]%s?", "");
+			end
+
+			_marker = string.gsub(_marker, "^%s+", "");
+		end
+
+		local wrapped = wrap(text, width - vim.fn.strdisplaywidth(marker));
 
 		for w, wline in ipairs(vim.split(wrapped, "\n")) do
 			if w ~= 1 then
-				table.insert(output, string.rep(" ", vim.fn.strchars(marker)) .. wline);
+				table.insert(output, extra .. string.rep(" ", tabstop + vim.fn.strchars(_marker)) .. wline);
 			else
-				table.insert(output, wline);
+				table.insert(output, string.rep(" ", tabstop) .. extra .. _marker .. wline);
 			end
+
+			vim.print(output[#output])
 		end
 	end
 
 	return output;
 end
-
-markdown.list_marker_minus = function ()
-	return { "• " };
-end
-
-markdown.list_marker_plus = markdown.list_marker_minus;
-
-markdown.list_marker_star = markdown.list_marker_minus;
 
 markdown.inline = function (buffer, node)
 	local language_tree = _G.__markdoc_state.language_tree;

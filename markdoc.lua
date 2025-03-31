@@ -37,7 +37,7 @@ local markdoc = {};
 ---
 --- Heading text pattern & the corresponding
 --- tag.
----@field tags table<string, string | string[]>
+---@field tags? table<string, string | string[]>
 ---@field table? mkdoc.table_opts
 ---
 --- Width of help file.
