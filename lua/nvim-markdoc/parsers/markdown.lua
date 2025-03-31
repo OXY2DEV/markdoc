@@ -419,10 +419,18 @@ markdown.list_item = function (buffer, node)
 		_content = utils.replace(_content, range, ccontent, crange);
 	end
 
-	table.remove(_content);
+	if _content[#_content] == "" then
+		table.remove(_content);
+	end
+
 	local output = {};
 
 	for l, line in ipairs(_content) do
+		if string.match(line, "^%s*$") then
+			table.insert(output, line);
+			goto continue;
+		end
+
 		local extra, text = "", "";
 
 		if range[2] ~= 0 then
@@ -460,9 +468,9 @@ markdown.list_item = function (buffer, node)
 			else
 				table.insert(output, string.rep(" ", tabstop) .. extra .. _marker .. wline);
 			end
-
-			vim.print(output[#output])
 		end
+
+	    ::continue::
 	end
 
 	return output;
