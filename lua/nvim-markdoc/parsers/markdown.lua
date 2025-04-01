@@ -261,6 +261,12 @@ markdown.block_quote = function (buffer, node)
 		table.remove(_content);
 	end
 
+	for l, line in ipairs(_content) do
+		if string.match(line, "^%s*>") == nil then
+			_content[l] = "> " .. line;
+		end
+	end
+
 	local output = {};
 	local within_code = false;
 
@@ -392,6 +398,8 @@ markdown.list = function (buffer, node)
 end
 
 markdown.list_item = function (buffer, node)
+	---|fS
+
 	local width = get_usable_width(node) - 2;
 	local tabstop = spec.config.tabstop or 4;
 
@@ -426,7 +434,9 @@ markdown.list_item = function (buffer, node)
 	local output = {};
 
 	for l, line in ipairs(_content) do
-		if string.match(line, "^%s*$") then
+		if string.match(line, "^[%s>]*$") then
+			--- If the line just contains indentations
+			--- then don't pad it.
 			table.insert(output, line);
 			goto continue;
 		end
@@ -450,7 +460,7 @@ markdown.list_item = function (buffer, node)
 
 		if l == 1 then
 			if string.match(text, "^%s*[%-%+%+]%s?") then
-				_marker = string.match(text, "^%s*[%-%+%+]%s?");
+				_marker = string.match(text, "^%s*[%-%+%+]%s?"):gsub("[%-%+%*]", "•");
 				text = string.gsub(text, "^%s*[%-%+%+]%s?", "");
 			else
 				_marker = string.match(text, "^%s*%d+[%.%)]%s?");
@@ -466,7 +476,7 @@ markdown.list_item = function (buffer, node)
 			if w ~= 1 then
 				table.insert(output, extra .. string.rep(" ", tabstop + vim.fn.strchars(_marker)) .. wline);
 			else
-				table.insert(output, string.rep(" ", tabstop) .. extra .. _marker .. wline);
+				table.insert(output, extra .. string.rep(" ", tabstop) .. _marker .. wline);
 			end
 		end
 
@@ -474,6 +484,8 @@ markdown.list_item = function (buffer, node)
 	end
 
 	return output;
+
+	---|fE
 end
 
 markdown.inline = function (buffer, node)
