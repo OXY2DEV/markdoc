@@ -6,6 +6,10 @@ local yaml = require("nvim-markdoc.parsers.yaml");
 local spec = require("nvim-markdoc.spec");
 local utils = require("nvim-markdoc.utils");
 
+--- Wraps the given text.
+---@param text string
+---@param width integer
+---@return string
 local function wrap(text, width)
 	---|fS
 
@@ -16,7 +20,11 @@ local function wrap(text, width)
 
 	local code_at;
 
+	--- Merges tokens from {code_at} till
+	--- the end of {tokens}.
 	local function merge_tokens ()
+		---|fS
+
 		local merged = "";
 
 		for t, _ in ipairs(tokens) do
@@ -27,9 +35,15 @@ local function wrap(text, width)
 		end
 
 		table.insert(tokens, merged .. "`");
+
+		---|fE
 	end
 
+	--- Turns text into tokens,
+	--- {Some `inline code` in text} → Some, " ", `inline code`, " ", in, " ", text
 	for c = 0, vim.fn.strchars(text) - 1 do
+		---|fS
+
 		local char = vim.fn.strcharpart(text, c, 1);
 		local is_whitespace = string.match(char, "%s") ~= nil;
 
@@ -61,9 +75,13 @@ local function wrap(text, width)
 				table.insert(tokens, char);
 			end
 		end
+
+		---|fE
 	end
 
 	for _, token in ipairs(tokens) do
+		---|fS
+
 		local line_length = vim.fn.strchars(string.match(_output, "\n?([^\n]-)$"));
 		local len = vim.fn.strchars(token) or 0;
 
@@ -126,6 +144,8 @@ local function wrap(text, width)
 
 			---|fE
 		end
+
+		---|fE
 	end
 
 	--- Remove spaces that come before
@@ -138,7 +158,13 @@ local function wrap(text, width)
 	---|fE
 end
 
+--- Adds empty lines before text
+---@param content string[]
+---@param node table
+---@return string[]
 local function add_space(content, node)
+	---|fS
+
 	local amount = utils.spaces_above(node);
 
 	for _ = 1, amount do
@@ -146,9 +172,17 @@ local function add_space(content, node)
 	end
 
 	return content;
+
+	---|fE
 end
 
+--- Gets the amount of columns an element
+--- can span.
+---@param node table
+---@return integer
 local function get_usable_width(node)
+	---|fS
+
 	local width = spec.config.textwidth or 78;
 	local parent = node:parent();
 
@@ -163,17 +197,24 @@ local function get_usable_width(node)
 	end
 
 	return width;
+
+	---|fE
 end
 
 markdown.document = function (buffer, node)
-	local content = {};
+	local _content = vim.split(vim.treesitter.get_node_text(node, buffer), "\n", {});
+	local range = { node:range() };
 
-	for child_node in node:iter_children() do
-		local _content = markdown.handle(buffer, child_node);
-		content = vim.list_extend(content, _content);
+	for c = node:child_count() - 1, 0, -1 do
+		local child_node = node:child(c);
+
+		local crange = { child_node:range() };
+		local ccontent = markdown.handle(buffer, child_node);
+
+		_content = utils.replace(_content, range, ccontent, crange);
 	end
 
-	return content;
+	return _content;
 end
 
 markdown.minus_metadata = function (buffer, node)
@@ -199,7 +240,6 @@ markdown.atx_heading = function (buffer, node)
 		-- return markdown.handle(buffer, node);
 	elseif marker:type() == "atx_h3_marker" and node:child_count() == 2 then
 		local _content = markdown.inline(buffer, node:child(1));
-		_content = add_space(_content, node);
 
 		for l, line in ipairs(_content) do
 			line = string.gsub(line, "[^%w.()%s]", "");
@@ -208,15 +248,16 @@ markdown.atx_heading = function (buffer, node)
 			_content[l] = string.upper(line);
 		end
 
+		_content = add_space(_content, node);
 		return _content;
 	elseif node:child_count() == 2 then
 		local _content = markdown.inline(buffer, node:child(1));
-		_content = add_space(_content, node);
 
 		for l, line in ipairs(_content) do
 			_content[l] = line .. " ~";
 		end
 
+		_content = add_space(_content, node);
 		return _content;
 	else
 		return {};
@@ -336,7 +377,6 @@ markdown.block_continuation = markdown.block_quote_marker;
 markdown.indented_code_block = function (buffer, node)
 	local text = vim.treesitter.get_node_text(node, buffer);
 	local _content = vim.split(text, "\n");
-	_content = add_space(_content, node);
 
 	local ft = vim.filetype.match({ contents = _content });
 	local tabstop = vim.bo[buffer].tabstop or 4;
@@ -352,6 +392,7 @@ markdown.indented_code_block = function (buffer, node)
 	table.insert(_content, 1, string.format(">%s", ft or ""));
 	table.insert(_content, "<");
 
+	_content = add_space(_content, node);
 	return _content;
 end
 
@@ -381,7 +422,6 @@ end
 markdown.list = function (buffer, node)
 	local text = vim.treesitter.get_node_text(node, buffer);
 	local _content = vim.split(text, "\n");
-	_content = add_space(_content, node);
 
 	local range = { node:range() };
 
@@ -394,6 +434,7 @@ markdown.list = function (buffer, node)
 		_content = utils.replace(_content, range, ccontent, crange);
 	end
 
+	_content = add_space(_content, node);
 	return _content;
 end
 
@@ -401,7 +442,7 @@ markdown.list_item = function (buffer, node)
 	---|fS
 
 	local tabstop = spec.config.tabstop or 4;
-	local width = get_usable_width(node) - (1.5 * tabstop); -- Reserve some extra space(for syntax)
+	local width = get_usable_width(node) - (2 + tabstop); -- Reserve some extra space(for syntax)
 
 	if width <= 1 then
 		return {};
