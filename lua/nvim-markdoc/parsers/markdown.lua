@@ -375,6 +375,8 @@ end
 markdown.block_continuation = markdown.block_quote_marker;
 
 markdown.indented_code_block = function (buffer, node)
+	---|fS
+
 	local text = vim.treesitter.get_node_text(node, buffer);
 	local _content = vim.split(text, "\n");
 
@@ -394,6 +396,32 @@ markdown.indented_code_block = function (buffer, node)
 
 	_content = add_space(_content, node);
 	return _content;
+
+	---|fE
+end
+
+markdown.fenced_code_block = function (buffer, node)
+	---|fS
+
+	local text = vim.treesitter.get_node_text(node, buffer);
+	local _content = vim.split(text, "\n");
+
+	local tabstop = vim.bo[buffer].tabstop or 4;
+
+	for l, line in ipairs(_content) do
+		if l == 1 then
+			_content[l] = string.gsub(line, "`+", ">");
+		elseif l == #_content then
+			_content[l] = string.gsub(line, "`+", "<");
+		else
+			_content[l] = string.rep(" ", tabstop) .. line;
+		end
+	end
+
+	_content = add_space(_content, node);
+	return _content;
+
+	---|fE
 end
 
 markdown.thematic_break = function (buffer, node)
