@@ -400,8 +400,8 @@ end
 markdown.list_item = function (buffer, node)
 	---|fS
 
-	local width = get_usable_width(node) - 2;
 	local tabstop = spec.config.tabstop or 4;
+	local width = get_usable_width(node) - (1.5 * tabstop); -- Reserve some extra space(for syntax)
 
 	if width <= 1 then
 		return {};
@@ -470,11 +470,12 @@ markdown.list_item = function (buffer, node)
 			_marker = string.gsub(_marker, "^%s+", "");
 		end
 
+		---@type string
 		local wrapped = wrap(text, width - vim.fn.strdisplaywidth(marker));
 
 		for w, wline in ipairs(vim.split(wrapped, "\n")) do
 			if w ~= 1 then
-				table.insert(output, extra .. string.rep(" ", tabstop + vim.fn.strchars(_marker)) .. wline);
+				table.insert(output, extra .. string.rep(" ", tabstop) .. string.rep(" ", vim.fn.strchars(_marker)) .. wline);
 			else
 				table.insert(output, extra .. string.rep(" ", tabstop) .. _marker .. wline);
 			end
