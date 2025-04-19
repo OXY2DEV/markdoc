@@ -460,10 +460,32 @@ markdown.inline = function (buffer, node)
 	return inline.handle(buffer, injected_tree:root());
 end
 
+--- Gets row count of a table.
+---@param tbl table
+---@return integer
+local function get_rowcount (tbl)
+	---|fS
+
+	local R = 0;
+	local rows = { "pipe_table_header", "pipe_table_row" };
+
+	for child in tbl:iter_children() do
+		local type = child:type();
+
+		if vim.list_contains(rows, type) then
+			R = R + 1;
+		end
+	end
+
+	return R;
+
+	---|fE
+end
+
 --- Gets table column size.
 ---@param row_count integer
 ---@return integer
-local get_colsize = function (row_count)
+local function get_colsize (row_count)
 	---|fS
 
 	local C = 1;
@@ -491,7 +513,7 @@ end
 ---@param buffer integer
 ---@param tbl table
 ---@return ( "left" | "right" | "center" )[]
-local get_alignments = function (buffer, tbl)
+local function get_alignments (buffer, tbl)
 	---|fS
 
 	if not tbl:child(1) then
@@ -620,7 +642,8 @@ markdown.pipe_table = function (buffer, node)
 	---|fS
 
 	local text = vim.treesitter.get_node_text(node, buffer);
-	local _content = vim.split(text, "\n");
+	local lines = vim.split(text, "\n", { trimempty = true });
+	local before = string.match(lines[2] or "", "^([^|]*)|");
 
 	local alignments = get_alignments(buffer, node);
 	local output = {};
@@ -629,7 +652,7 @@ markdown.pipe_table = function (buffer, node)
 		node:child(0), "top"
 	));
 
-	local rows = node:child_count();
+	local rows = get_rowcount(node);
 	local R = 1;
 
 	for row in node:iter_children() do
@@ -641,6 +664,8 @@ markdown.pipe_table = function (buffer, node)
 			table.insert(output, markdown.__create_border(
 				node:child(0), "separator"
 			));
+
+			R = R + 1;
 		elseif node_type == "pipe_table_row" then
 			output = vim.list_extend(output, markdown.__create_row(buffer, row, "row", alignments));
 
@@ -649,18 +674,24 @@ markdown.pipe_table = function (buffer, node)
 					node:child(0), "row_separator"
 				));
 			end
-		end
 
-		R = R + 1;
+			R = R + 1;
+		end
 	end
 
 	table.insert(output, markdown.__create_border(
 		node:child(0), "bottom"
 	));
 
-	-- for _, line in ipairs(output) do
-	-- 	vim.print(line)
-	-- end
+	local range = { node:range() };
+
+	for l, line in ipairs(output) do
+		if range[2] ~= 0 and l ~= 1 then
+			output[l] = before .. line;
+		elseif range[2] == 0 then
+			output[l] = before .. line;
+		end
+	end
 
 	return output;
 
