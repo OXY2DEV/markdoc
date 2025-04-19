@@ -6,156 +6,51 @@ local yaml = require("nvim-markdoc.parsers.yaml");
 local spec = require("nvim-markdoc.spec");
 local utils = require("nvim-markdoc.utils");
 
+---@type integer
+local wrap_buffer = vim.api.nvim_create_buf(false, true);
+
 --- Wraps the given text.
 ---@param text string
 ---@param width integer
----@return string
+---@return string[]
 local function wrap(text, width)
 	---|fS
 
-	width = width or 78;
-	local _output = "";
-
-	local tokens = {};
-
-	local code_at;
-
-	--- Merges tokens from {code_at} till
-	--- the end of {tokens}.
-	local function merge_tokens ()
-		---|fS
-
-		local merged = "";
-
-		for t, _ in ipairs(tokens) do
-			if t > code_at then
-				merged = merged .. tokens[t];
-				tokens[t] = nil;
-			end
-		end
-
-		table.insert(tokens, merged .. "`");
-
-		---|fE
+	if not wrap_buffer or not vim.api.nvim_buf_is_valid(wrap_buffer) then
+		wrap_buffer = vim.api.nvim_create_buf(false, true);
 	end
 
-	--- Turns text into tokens,
-	--- {Some `inline code` in text} → Some, " ", `inline code`, " ", in, " ", text
-	for c = 0, vim.fn.strchars(text) - 1 do
-		---|fS
+	vim.bo[wrap_buffer].ft = "markdown";
+	vim.bo[wrap_buffer].textwidth = width or vim.o.columns;
 
-		local char = vim.fn.strcharpart(text, c, 1);
-		local is_whitespace = string.match(char, "%s") ~= nil;
+	vim.api.nvim_buf_set_lines(wrap_buffer, 0, -1, false, { text });
+	vim.api.nvim_buf_call(wrap_buffer, function ()
+		vim.cmd("%normal gqq");
+	end)
 
-		if is_whitespace then
-			if char == "\n" then
-				table.insert(tokens, "");
-			elseif #tokens > 0 and (tokens[#tokens] == "" or string.match(tokens[#tokens], "^%s+$") ~= nil) then
-				tokens[#tokens] = tokens[#tokens] .. char;
-			else
-				table.insert(tokens, char);
-			end
-		elseif char == "`" then
-			if not code_at then
-				code_at = #tokens;
-
-				if #tokens > 0 and string.match(tokens[#tokens], "^%S+$") then
-					tokens[#tokens] = tokens[#tokens] .. char;
-				else
-					table.insert(tokens, char);
-				end
-			else
-				merge_tokens();
-				code_at = nil;
-			end
-		else
-			if #tokens > 0 and string.match(tokens[#tokens], "^%S+$") then
-				tokens[#tokens] = tokens[#tokens] .. char;
-			else
-				table.insert(tokens, char);
-			end
-		end
-
-		---|fE
-	end
-
-	for _, token in ipairs(tokens) do
-		---|fS
-
-		local line_length = vim.fn.strchars(string.match(_output, "\n?([^\n]-)$"));
-		local len = vim.fn.strchars(token) or 0;
-
-		if string.match(token, "^%s+") then
-			---|fS
-
-			--- Only add whitespace if we aren't in a new line
-			--- and the output isn't empty.
-			--- Also check if we have enough space
-			if (line_length + len) <= width then
-				_output = _output .. token;
-				line_length = line_length + len;
-			end
-
-			---|fE
-		elseif string.match(token, "^`[^`]+`") then
-			---|fS
-
-			--- Discard inline codes that are very big.
-			if len <= width then
-				if line_length + len <= width then
-					_output = _output .. token;
-					line_length = line_length + len;
-				else
-					_output = _output .. "\n" .. token;
-					line_length = len;
-				end
-			end
-
-			---|fE
-		else
-			---|fS
-
-			if len > width then
-				local chars = 0;
-
-				for c = 0, vim.fn.strchars(token) - 1 do
-					local char = vim.fn.strcharpart(token, c, 1)
-
-					if chars == width then
-						_output = _output .. "\n";
-						chars = 0;
-					end
-
-					_output = _output .. char;
-					chars = chars + 1;
-				end
-
-				line_length = char;
-			elseif (line_length + len) > width then
-				_output = _output .. "\n" .. token;
-				line_length = len;
-			elseif _output == "" then
-				line_length = line_length + len;
-				_output = _output .. token;
-			else
-				line_length = line_length + 1 + len;
-				_output = _output .. token;
-			end
-
-			---|fE
-		end
-
-		---|fE
-	end
-
-	--- Remove spaces that come before
-	--- the end of lines.
-	--- Fixes text alignment issues.
-	_output = _output:gsub(" *\n", "\n")
-
-	return _output;
+	return vim.api.nvim_buf_get_lines(wrap_buffer, 0, -1, false);
 
 	---|fE
+end
+
+local function align (text, alignment, width)
+	alignment = alignment or "left";
+	width = width or vim.o.columns;
+
+	local lines = wrap(text, width);
+	vim.api.nvim_buf_set_lines(wrap_buffer, 0, -1, false, lines);
+
+	vim.api.nvim_buf_call(wrap_buffer, function ()
+		if alignment == "left" then
+			vim.cmd("%left")
+		elseif alignment == "right" then
+			vim.cmd("%right")
+		else
+			vim.cmd("%center")
+		end
+	end);
+
+	return vim.api.nvim_buf_get_lines(wrap_buffer, 0, -1, false);
 end
 
 --- Adds empty lines before text
@@ -355,7 +250,7 @@ markdown.block_quote = function (buffer, node)
 		else
 			local _wrapped = wrap(text, width - vim.fn.strdisplaywidth(config.border or ""));
 
-			for _, wline in ipairs(vim.split(_wrapped, "\n")) do
+			for _, wline in ipairs(_wrapped) do
 				table.insert(output, extra .. (config.border or " ") .. " " .. wline);
 			end
 		end
@@ -539,10 +434,10 @@ markdown.list_item = function (buffer, node)
 			_marker = string.gsub(_marker, "^%s+", "");
 		end
 
-		---@type string
+		---@type string[]
 		local wrapped = wrap(text, width - vim.fn.strdisplaywidth(marker));
 
-		for w, wline in ipairs(vim.split(wrapped, "\n")) do
+		for w, wline in ipairs(wrapped) do
 			if w ~= 1 then
 				table.insert(output, extra .. string.rep(" ", tabstop) .. string.rep(" ", vim.fn.strchars(_marker)) .. wline);
 			else
@@ -563,6 +458,213 @@ markdown.inline = function (buffer, node)
 	local injected_tree = language_tree:tree_for_range({ node:range() }, { ignore_injections = false });
 
 	return inline.handle(buffer, injected_tree:root());
+end
+
+--- Gets table column size.
+---@param row_count integer
+---@return integer
+local get_colsize = function (row_count)
+	---|fS
+
+	local C = 1;
+
+	local width = spec.config.textwidth or 78;
+	local min_width = spec.config.table.col_minwidth or 1;
+
+	if row_count % 2 ~= 0 then
+		C = (row_count - 1) / 2;
+	else
+		C = row_count / 2;
+	end
+
+	width = width - C;
+
+	return math.min(
+		math.floor(width / C),
+		min_width
+	);
+
+	---|fE
+end
+
+--- Gets table column alignments.
+---@param buffer integer
+---@param tbl table
+---@return ( "left" | "right" | "center" )[]
+local get_alignments = function (buffer, tbl)
+	---|fS
+
+	if not tbl:child(1) then
+		return {};
+	end
+
+	local alignments = {};
+
+	for child in tbl:child(1):iter_children() do
+		if child:type() == "pipe_table_delimiter_cell" then
+			local text = vim.treesitter.get_node_text(child, buffer);
+
+			if string.match(text, "^:%-+:$") then
+				table.insert(alignments, "center");
+			elseif string.match(text, "%-+:$") then
+				table.insert(alignments, "right");
+			else
+				table.insert(alignments, "left");
+			end
+		end
+	end
+
+	return alignments;
+
+	---|fE
+end
+
+--- Creates table borders.
+---@param row table
+---@param as string
+---@return string[]
+markdown.__create_border = function (row, as)
+	---|fS
+
+	as = as or "header";
+
+	local cols = row:child_count();
+	local C = 1;
+
+	if cols % 2 ~= 0 then
+		C = (cols - 1) / 2;
+	else
+		C = cols / 2;
+	end
+
+	local col_size = get_colsize(cols);
+	local borders = spec.config.table[as] or { "", "", "", "" };
+
+	local output = borders[1] or " ";
+
+	for c = 1, C, 1 do
+		output = output .. string.rep(borders[2] or " ", col_size);
+
+		if c == C then
+			output = output .. (borders[3] or " ")
+		else
+			output = output .. (borders[4] or " ")
+		end
+	end
+
+	return output;
+
+	---|fE
+end
+
+--- Creates a row of a table.
+---@param buffer integer
+---@param row table
+---@param as string
+---@param alignments ( "left" | "right" | "center" )[]
+---@return string[]
+markdown.__create_row = function (buffer, row, as, alignments)
+	---|fS
+
+	as = as or "header";
+	alignments = alignments or {};
+
+	local col_size = get_colsize(row:child_count());
+	local row_span = 1;
+
+	local cols = {};
+	local C = 1;
+
+	for col in row:iter_children() do
+		if col:type() == "pipe_table_cell" then
+			local cell_content = markdown.inline(buffer, col);
+			local wrapped = align(cell_content[1], alignments[C], col_size - 2);
+
+			row_span = math.max(row_span, #wrapped);
+			table.insert(cols, wrapped);
+
+			C = C + 1;
+		end
+	end
+
+	local borders = spec.config.table[as] or { "", "", "" };
+	local output = {};
+
+	for l = 1, row_span, 1 do
+		local line = borders[1] or "";
+
+		for c, col in ipairs(cols) do
+			if col[l] then
+				line = line .. " ";
+				line = line .. string.format("%-" .. (col_size - 1) .. "s", col[l]);
+			else
+				line = line .. string.rep(" ", col_size);
+			end
+
+			if c == #cols then
+				line = line .. (borders[3] or "");
+			else
+				line = line .. (borders[2] or "");
+			end
+		end
+
+		table.insert(output, line);
+	end
+
+	return output;
+
+	---|fE
+end
+
+markdown.pipe_table = function (buffer, node)
+	---|fS
+
+	local text = vim.treesitter.get_node_text(node, buffer);
+	local _content = vim.split(text, "\n");
+
+	local alignments = get_alignments(buffer, node);
+	local output = {};
+
+	table.insert(output, markdown.__create_border(
+		node:child(0), "top"
+	));
+
+	local rows = node:child_count();
+	local R = 1;
+
+	for row in node:iter_children() do
+		local node_type = row:type();
+
+		if node_type == "pipe_table_header" then
+			output = vim.list_extend(output, markdown.__create_row(buffer, row, "header", alignments));
+
+			table.insert(output, markdown.__create_border(
+				node:child(0), "separator"
+			));
+		elseif node_type == "pipe_table_row" then
+			output = vim.list_extend(output, markdown.__create_row(buffer, row, "row", alignments));
+
+			if R ~= rows then
+				table.insert(output, markdown.__create_border(
+					node:child(0), "row_separator"
+				));
+			end
+		end
+
+		R = R + 1;
+	end
+
+	table.insert(output, markdown.__create_border(
+		node:child(0), "bottom"
+	));
+
+	-- for _, line in ipairs(output) do
+	-- 	vim.print(line)
+	-- end
+
+	return output;
+
+	---|fE
 end
 
 markdown.handle = function (buffer, node)
